@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>终末地战斗轴 · 一图流</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand"><span class="brand-mark">/ /</span><span>ENDFIELD <b>AXIS</b></span></div>
+    <span class="version">TACTICAL SEQUENCE / 01</span>
+  </header>
+
+  <main class="workspace">
+    <section class="editor" aria-label="CSV 编辑器">
+      <div class="section-heading"><span class="index">01 / INPUT</span><h1>技能顺序</h1></div>
+      <p class="field-label">CSV / TSV <span>skill · time · note</span></p>
+      <textarea id="csv" spellcheck="false" aria-label="技能顺序 CSV">skill,time,note
+赛战技,:57,
+祀战技诀连携,:56,
+祀拉球,:54,
+重击,:54,
+切决,:54,
+祀丢球,:52,
+祀战技+拉球,:51,
+重击,:51,
+赛连携,:50,
+诀战技,:47,"四腐蚀，别放葱连携"
+提普通三段,,
+提战技,:47,
+赛大招,,
+提四箭,:43,
+祀提连携,:42,
+诀战技,:42,
+祀大招,:39,
+诀战技,:38,
+诀连携,:37,
+诀大招,,
+提四箭,,
+提连携,,
+提五箭,:32,
+祀丢球,,</textarea>
+      <div class="editor-actions">
+        <label class="button button-secondary" for="file">导入 CSV</label>
+        <input id="file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden>
+        <button class="button button-primary" id="render" type="button">生成预览 <span aria-hidden="true">↗</span></button>
+      </div>
+      <p class="status" id="status" role="status"></p>
+      <div class="editor-foot"><span>UTF-8</span><span>保留输入顺序</span><span>空时间可用</span></div>
+    </section>
+
+    <section class="preview" aria-label="图片预览">
+      <div class="preview-toolbar">
+        <div><span class="index">02 / OUTPUT</span><h2>成品预览</h2></div>
+        <button class="button button-download" id="download" type="button">下载 PNG <span aria-hidden="true">↓</span></button>
+      </div>
+      <div class="canvas-wrap"><canvas id="poster" aria-label="技能顺序图片"></canvas></div>
+      <p class="preview-meta"><span id="dimensions">1440 × 1920 PX</span><span>PNG / 高清输出</span></p>
+    </section>
+  </main>
+</body>
+</html>
