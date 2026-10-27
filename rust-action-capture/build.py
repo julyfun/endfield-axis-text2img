@@ -11,7 +11,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-root", type=Path, required=True, help="EndfieldLogsClient/_internal")
     parser.add_argument("--toolchain", help="Optional rustup toolchain")
-    parser.add_argument("--output", type=Path, help="Optional portable application directory")
     args = parser.parse_args()
     project = Path(__file__).resolve().parent
     core = args.core_root.resolve()
@@ -50,7 +49,7 @@ def main():
     target = project / "target"
     command += ["build", "--release", "--locked", "--target-dir", str(target)]
     subprocess.run(command, cwd=project, check=True)
-    output = args.output.resolve() if args.output else project / "dist/endfield-action-capture"
+    output = project / "dist/endfield-action-capture"
     output.mkdir(parents=True, exist_ok=True)
     shutil.copy2(target / "release/endfield-action-capture.exe", output)
     shutil.copytree(work / "dist/endfield-capture", output / "capture", dirs_exist_ok=True)
