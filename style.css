@@ -27,6 +27,7 @@ textarea:focus { border-color: #dce83d; }
 .button-secondary:hover { background: #303735; }
 .button-primary, .button-download { background: #dce83d; color: #151915; }
 .button-primary:hover, .button-download:hover { background: #f2fa6b; }
+.button:disabled { cursor: not-allowed; opacity: .42; }
 .status { min-height: 36px; padding-top: 13px; font-size: 12px; color: #9fa9a2; }
 .status.error { color: #ff958a; }
 .error-details { max-height: 220px; overflow: auto; margin: 0; padding: 12px; border: 1px solid #743f3a; background: #241817; color: #ffb2a8; white-space: pre-wrap; word-break: break-word; font: 12px/1.5 monospace; }

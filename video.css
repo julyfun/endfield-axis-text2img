@@ -4,6 +4,10 @@
 .video-canvas-wrap { width: 100%; overflow: hidden; background: #0d1110; box-shadow: 0 24px 60px #0006; line-height: 0; }
 .video-canvas-wrap canvas { width: 100%; height: auto; display: block; }
 .video-actions, .video-controls { display: flex; align-items: center; gap: 10px; }
+.video-actions { margin-top: 12px; flex-wrap: wrap; }
+.video-editor .field-label .field-name { color: #eef0e8; }
+.video-editor .field-label .field-name span { color: #929c96; }
+.video-editor .field-label .file-name { max-width: 58%; overflow: hidden; color: #dce83d; text-overflow: ellipsis; white-space: nowrap; }
 .preview-actions { display: flex; align-items: center; gap: 10px; }
 .video-controls { margin-top: 16px; }
 .video-controls input[type="range"] { flex: 1; accent-color: #dce83d; }
