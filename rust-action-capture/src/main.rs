@@ -267,7 +267,10 @@ impl App {
         true
     }
 
-    fn save_csv(&self) -> std::io::Result<PathBuf> {
+    fn save_csv(&self) -> std::io::Result<Option<PathBuf>> {
+        if self.actions.is_empty() {
+            return Ok(None);
+        }
         let dir = Path::new(&self.csv_dir);
         fs::create_dir_all(dir)?;
         let stamp = SystemTime::now()
@@ -281,7 +284,7 @@ impl App {
             w.write_record([&a.operator, &a.action, &format_time(a.time), ""])?;
         }
         w.flush()?;
-        Ok(path)
+        Ok(Some(path))
     }
 }
 
@@ -322,10 +325,11 @@ impl eframe::App for App {
                 }
                 if ui.small_button("存").clicked() {
                     self.status = match self.save_csv() {
-                        Ok(_) => {
+                        Ok(Some(_)) => {
                             self.saved_actions = self.actions.len();
                             "CSV 已保存".into()
                         }
+                        Ok(None) => "没有动作记录，未保存".into(),
                         Err(e) => format!("CSV 保存失败：{e}"),
                     };
                 }
@@ -447,6 +451,9 @@ mod tests {
         ));
         let mut app = App::default();
         app.csv_dir = dir.to_string_lossy().into_owned();
+        assert!(app.save_csv().unwrap().is_none());
+        assert!(app.finish());
+        assert!(!dir.exists());
         battle(&mut app);
         assert_eq!(app.actions[0].operator, "提弗洛斯");
         assert_eq!(app.actions[0].action, "战技");
@@ -506,7 +513,7 @@ mod tests {
                 .as_nanos()
         ));
         app.csv_dir = dir.to_string_lossy().into_owned();
-        let path = app.save_csv().unwrap();
+        let path = app.save_csv().unwrap().unwrap();
         let rows: Vec<_> = csv::Reader::from_path(&path)
             .unwrap()
             .records()
