@@ -162,7 +162,7 @@ function draw(steps) {
   steps.forEach(step => { const key = Math.floor(step.position / 10); counts.set(key, (counts.get(key) || 0) + 1); });
   const width = Math.max(1800, Math.max(...counts.values()) * 158 + 320);
   const lanes = layout(steps, width);
-  const height = 300 + lanes.length * 360 + 100;
+  const height = 300 + lanes.length * 340 + 100;
   canvas.width = width; canvas.height = height;
   ctx.fillStyle = '#151919'; ctx.fillRect(0, 0, width, height);
   for (let x = 70; x < width; x += 120) line(x, 0, x, height, '#ffffff0b', 1);
@@ -175,17 +175,9 @@ function draw(steps) {
   text(`${timeLabel(steps[0].position)}  →  ${timeLabel(steps.at(-1).position)}`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
   let previous = null;
   lanes.forEach((lane, row) => {
-    const top = 320 + row * 360, y = top + 86;
+    const top = 320 + row * 340, y = top + 86;
     const direction = row % 2 ? -1 : 1;
-    ctx.fillStyle = row % 2 ? '#202624' : '#1c2220'; ctx.fillRect(75, top, width - 150, 340);
-    text(`SEGMENT ${String(row + 1).padStart(2, '0')}`, 99, top + 30, '800 17px Arial', '#9ca79e');
-    const rail = top + 295;
-    line(145, rail, width - 145, rail, '#859087', 2);
-    for (let tick = 0; tick <= 10; tick += 5) {
-      const x = direction > 0 ? 145 + (width - 290) * tick / 10 : width - 145 - (width - 290) * tick / 10;
-      line(x, rail - 11, x, rail + 11, '#dce83d', 2);
-      text(timeLabel(lane.bucket * 10 + 10 - tick), x, rail + 35, '700 16px Arial', '#9ca79e', 'center');
-    }
+    ctx.fillStyle = row % 2 ? '#202624' : '#1c2220'; ctx.fillRect(75, top, width - 150, 320);
     if (previous && lane.nodes.length) {
       const routeX = row % 2 ? width - 91 : 91;
       line(previous.x + previous.direction * 68, previous.y, routeX, previous.y, '#dce83d', 3);
