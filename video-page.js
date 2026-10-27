@@ -95,5 +95,5 @@ videoExport.addEventListener('click', () => exportVideo().catch(error => { video
 document.addEventListener('editor-file-loaded', () => loadVideo());
 
 Promise.all(['examples/rotation.csv', 'examples/video.toml'].map(url => fetch(url).then(response => response.text())))
-  .then(([csv, config]) => { source.value = csv; videoConfigSource.value = config; return loadVideo(); })
+  .then(([csv, config]) => { if (!source.value) source.value = csv; if (!videoConfigSource.value) videoConfigSource.value = config; return loadVideo(); })
   .catch(error => { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; });

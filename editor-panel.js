@@ -21,6 +21,9 @@ async function saveEditorText(text, filename, type, chooseLocation = false) {
 
 if (editorPanel) {
   const videoMode = editorPanel.dataset.editorMode === 'video';
+  const storagePrefix = `endfield-axis:${videoMode ? 'video' : 'poster'}`;
+  const readCache = key => { try { return localStorage.getItem(`${storagePrefix}:${key}`); } catch { return null; } };
+  const writeCache = (key, value) => { try { localStorage.setItem(`${storagePrefix}:${key}`, value); } catch {} };
   editorPanel.innerHTML = `
     <div class="section-heading"><span class="index">01 / INPUT</span>${videoMode ? '' : '<h1>技能顺序</h1>'}</div>
     <p class="field-label"><span class="field-name">CSV <span>operator · action · time · note</span></span><span class="file-name" id="csv-name"></span></p>
@@ -50,7 +53,11 @@ if (editorPanel) {
     { type: 'toml', input: editorPanel.querySelector('#poster-config'), picker: editorPanel.querySelector('#config-file'), name: editorPanel.querySelector('#toml-name'), save: editorPanel.querySelector('#toml-save'), saveAs: editorPanel.querySelector('#toml-save-as'), fallback: 'endfield-axis.toml', mime: 'text/plain;charset=utf-8' }
   ];
   fields.forEach(field => {
-    let importedName = '';
+    let importedName = readCache(`${field.type}-name`) || '';
+    const cachedText = readCache(field.type);
+    if (cachedText !== null) field.input.value = cachedText;
+    if (importedName) { field.name.textContent = importedName; field.save.disabled = false; }
+    field.input.addEventListener('input', () => writeCache(field.type, field.input.value));
     field.picker.addEventListener('change', async event => {
       const file = event.target.files[0];
       if (file) {
@@ -58,6 +65,8 @@ if (editorPanel) {
         importedName = file.name;
         field.name.textContent = importedName;
         field.save.disabled = false;
+        writeCache(field.type, field.input.value);
+        writeCache(`${field.type}-name`, importedName);
         document.dispatchEvent(new CustomEvent('editor-file-loaded', { detail: { type: field.type, name: importedName } }));
       }
       event.target.value = '';
