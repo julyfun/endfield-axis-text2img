@@ -10,3 +10,5 @@ ignore*
 
 /rust-action-capture/target-*/
 
+/rust-action-capture/target-*/
+

@@ -25,13 +25,14 @@ struct App {
     skill_by_inst: std::collections::HashMap<i64, String>,
     name_by_inst: std::collections::HashMap<i64, String>,
     countdown_end_ms: Option<i64>,
+    show_settings: bool,
 }
 
 impl Default for App {
     fn default() -> Self {
         let log_dir = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
         let csv_dir = dirs::document_dir().unwrap_or_else(|| PathBuf::from("."));
-        Self { log_dir: log_dir.to_string_lossy().into_owned(), csv_dir: csv_dir.to_string_lossy().into_owned(), current_file: None, offset: 0, actions: vec![], battle_started: None, first_capture_ms: None, countdown_origin_ms: None, status: "等待 session_*.ndjson".into(), last_tick: Instant::now(), auto_save: true, skill_by_inst: Default::default(), name_by_inst: Default::default(), countdown_end_ms: None }
+        Self { log_dir: log_dir.to_string_lossy().into_owned(), csv_dir: csv_dir.to_string_lossy().into_owned(), current_file: None, offset: 0, actions: vec![], battle_started: None, first_capture_ms: None, countdown_origin_ms: None, status: "等待日志".into(), last_tick: Instant::now(), auto_save: true, skill_by_inst: Default::default(), name_by_inst: Default::default(), countdown_end_ms: None, show_settings: false }
     }
 }
 
@@ -87,21 +88,26 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.last_tick.elapsed() >= Duration::from_millis(500) { self.poll(); self.last_tick = Instant::now(); ctx.request_repaint(); }
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(6.0, 4.0);
-            ui.heading("终末地排轴");
-            ui.label(&self.status);
             let elapsed = self.battle_started.map(|t| t.elapsed().as_secs_f32()).unwrap_or(0.0);
-            ui.label(format!("{} 个技能 · 已运行 {:.1} 秒", self.actions.len(), elapsed));
+            ui.spacing_mut().item_spacing = egui::vec2(3.0, 2.0);
             ui.horizontal(|ui| {
-                if ui.button("扫描").clicked() { self.poll(); }
-                if ui.button("保存 CSV").clicked() { self.status = match self.save_csv() { Ok(()) => "已保存 CSV".into(), Err(e) => format!("保存失败：{e}") }; }
-                ui.checkbox(&mut self.auto_save, "自动保存");
+                let drag = ui.add(egui::Label::new(format!("{} · {} 技能 · {:.1}s", self.status, self.actions.len(), elapsed)).sense(egui::Sense::drag()));
+                if drag.dragged() { ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag); }
+                if ui.small_button("扫描").clicked() { self.poll(); }
+                if ui.small_button("存").clicked() { self.status = match self.save_csv() { Ok(()) => "已保存".into(), Err(e) => format!("失败：{e}") }; }
+                if ui.small_button(if self.show_settings { "收" } else { "⚙" }).clicked() {
+                    self.show_settings = !self.show_settings;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(430.0, if self.show_settings { 220.0 } else { 34.0 })));
+                }
+                if ui.small_button("×").clicked() { ctx.send_viewport_cmd(egui::ViewportCommand::Close); }
             });
-            egui::CollapsingHeader::new("设置").show(ui, |ui| {
+            if self.show_settings {
+                ui.separator();
+                ui.checkbox(&mut self.auto_save, "战斗结束自动保存");
                 ui.label("日志目录"); ui.text_edit_singleline(&mut self.log_dir);
                 ui.label("CSV 保存目录"); ui.text_edit_singleline(&mut self.csv_dir);
-            });
-            egui::ScrollArea::vertical().max_height(195.0).show(ui, |ui| { for (i, a) in self.actions.iter().enumerate() { ui.label(format!("{}  {}  {}  {}", i + 1, a.operator, a.action, format_time(a.time))); } });
+                egui::ScrollArea::vertical().max_height(100.0).show(ui, |ui| { for (i, a) in self.actions.iter().enumerate() { ui.label(format!("{} {} {} {}", i + 1, a.operator, a.action, format_time(a.time))); } });
+            }
         });
     }
 }
@@ -114,7 +120,7 @@ fn format_time(v: Option<f64>) -> String { v.map(|x| format!("{}:{:06.3}", (x / 
 fn chrono_like_stamp() -> String { use std::time::{SystemTime, UNIX_EPOCH}; SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs().to_string()).unwrap_or_else(|_| "now".into()) }
 
 fn main() -> eframe::Result<()> {
-    let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([430.0, 320.0]).with_min_inner_size([360.0, 240.0]).with_resizable(false), ..Default::default() };
+    let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([430.0, 34.0]).with_min_inner_size([300.0, 28.0]).with_resizable(false).with_decorations(false).with_always_on_top(), ..Default::default() };
     eframe::run_native("终末地排轴", options, Box::new(|cc| {
         install_cjk_font(&cc.egui_ctx);
         Ok(Box::new(App::default()))
