@@ -159,7 +159,12 @@ function drawNode(node, y) {
     ctx.restore();
     ctx.strokeStyle = '#f4f5ee'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.stroke();
-    if (badge) ctx.drawImage(images.get(badge), cx - 23, cy - 23, 46, 46);
+    if (badge) {
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 29, 0, Math.PI * 2); ctx.clip();
+      ctx.shadowColor = 'rgba(0, 0, 0, .85)'; ctx.shadowBlur = 3; ctx.shadowOffsetY = 3;
+      ctx.drawImage(images.get(badge), cx - 26, cy - 26, 52, 52);
+      ctx.restore();
+    }
     else text(node.action === '切人' ? '⇄' : '闪', cx, cy + 11, '800 31px Arial, "PingFang SC"', '#f4f5ee', 'center');
   }
   text(node.action === '其他' ? node.note : node.action, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
