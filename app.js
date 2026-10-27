@@ -13,14 +13,17 @@ const operators = {
   '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel', elements: { '普攻': '自然', '重击': '自然', '战技': '自然', '连携': '自然', '大招': '自然' } }
 };
 const defaultParty = ['提弗洛斯', '祀', '诀', '赛希'];
-const defaultAliases = { '提丰': '提弗洛斯', '小葱': '祀' };
 const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '切人', '其他', '闪避']);
 const imageTasks = new Map(), images = new Map();
+const aliasesTask = fetch('assets/aliases.toml').then(response => {
+  if (!response.ok) throw new Error('无法加载干员别名');
+  return response.text();
+}).then(text => TOML.parse(text));
 const colorsTask = fetch('assets/elements.toml').then(response => {
   if (!response.ok) throw new Error('无法加载属性配色');
   return response.text();
 }).then(text => TOML.parse(text));
-let colors = {};
+let aliases = {}, colors = {};
 
 function parseDocument(source, configSource) {
   const config = TOML.parse(configSource.trim());
@@ -30,7 +33,7 @@ function parseDocument(source, configSource) {
   if (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60) throw new Error('row_seconds 需要 1–60 的整数');
   if (typeof title !== 'string' || [...title].length > 14) throw new Error('title 最多 14 个字');
   if (typeof timeline !== 'string' || [...timeline].length > 40) throw new Error('timeline 需要不超过 40 个字的字符串');
-  const aliases = { ...defaultAliases, ...config.aliases };
+  if (config.aliases) throw new Error('干员别名请写在 assets/aliases.toml');
   const resolve = name => aliases[name] || name;
   const party = config.operators ?? defaultParty;
   if (!Array.isArray(party)) throw new Error('operators 需要四名干员的数组');
@@ -243,6 +246,7 @@ function draw({ title, rowSeconds, timeline, steps }) {
 async function render() {
   download.disabled = true;
   try {
+    aliases = await aliasesTask;
     const data = parseDocument(input.value, posterConfig.value);
     const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
