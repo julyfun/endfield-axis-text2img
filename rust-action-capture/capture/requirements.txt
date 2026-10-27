@@ -1,0 +1,6 @@
+dpkt==1.9.8
+protobuf>=6.31.1,<7
+psutil>=6,<8
+pycryptodome>=3.23,<5
+websockets>=14,<17
+pyinstaller>=6,<7

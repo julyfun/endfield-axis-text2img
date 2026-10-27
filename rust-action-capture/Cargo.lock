@@ -989,7 +989,6 @@ dependencies = [
  "dirs",
  "eframe",
  "egui",
- "serde",
  "serde_json",
 ]
 

@@ -1,160 +1,505 @@
 #![windows_subsystem = "windows"]
 
+mod capture;
+
 use eframe::egui;
-use serde::Deserialize;
-use std::{fs, path::{Path, PathBuf}, time::{Duration, Instant}};
+use serde_json::Value;
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Clone, Debug)]
-struct Action { operator: String, action: String, time: Option<f64>, note: String }
-
-#[derive(Default, Deserialize)]
-struct Event { #[serde(rename = "type")] kind: Option<String>, timestamp_ms: Option<i64>, payload: Option<serde_json::Value>, #[serde(flatten)] rest: serde_json::Map<String, serde_json::Value> }
+struct Action {
+    operator: String,
+    action: String,
+    time: f64,
+    note: String,
+}
 
 struct App {
-    log_dir: String,
+    capture: Option<capture::Capture>,
+    game_dir: String,
     csv_dir: String,
-    current_file: Option<PathBuf>,
-    offset: u64,
     actions: Vec<Action>,
-    battle_started: Option<Instant>,
-    first_skill_at: Option<Instant>,
-    first_capture_ms: Option<i64>,
-    countdown_origin_ms: Option<i64>,
-    status: String,
-    last_tick: Instant,
-    auto_save: bool,
-    skill_by_inst: std::collections::HashMap<i64, String>,
-    name_by_inst: std::collections::HashMap<i64, String>,
+    origin_ms: Option<i64>,
     countdown_end_ms: Option<i64>,
+    saved_actions: usize,
+    skill_by_inst: HashMap<i64, String>,
+    name_by_inst: HashMap<i64, String>,
+    status: String,
+    packets: u64,
+    auto_save: bool,
     show_settings: bool,
 }
 
 impl Default for App {
     fn default() -> Self {
-        let log_dir = default_log_dir();
-        let csv_dir = dirs::document_dir().unwrap_or_else(|| PathBuf::from("."));
-        Self { log_dir: log_dir.to_string_lossy().into_owned(), csv_dir: csv_dir.to_string_lossy().into_owned(), current_file: None, offset: 0, actions: vec![], battle_started: None, first_skill_at: None, first_capture_ms: None, countdown_origin_ms: None, status: "等待日志".into(), last_tick: Instant::now(), auto_save: true, skill_by_inst: Default::default(), name_by_inst: Default::default(), countdown_end_ms: None, show_settings: false }
+        Self {
+            capture: None,
+            game_dir: String::new(),
+            csv_dir: dirs::document_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("EndfieldRotations")
+                .to_string_lossy()
+                .into_owned(),
+            actions: vec![],
+            origin_ms: None,
+            countdown_end_ms: None,
+            saved_actions: 0,
+            skill_by_inst: HashMap::new(),
+            name_by_inst: HashMap::new(),
+            status: "未开始抓包".into(),
+            packets: 0,
+            auto_save: true,
+            show_settings: false,
+        }
     }
 }
 
 impl App {
+    fn start(&mut self) {
+        match capture::Capture::start(&self.game_dir) {
+            Ok(capture) => {
+                self.capture = Some(capture);
+                self.packets = 0;
+                self.status = "正在启动抓包".into();
+            }
+            Err(e) => {
+                self.status = format!("抓包启动失败：{e}");
+                self.show_settings = true;
+            }
+        }
+    }
+
     fn poll(&mut self) {
-        let dir = Path::new(&self.log_dir);
-        let file = newest_session(dir);
-        if file != self.current_file { self.current_file = file; self.offset = 0; self.actions.clear(); self.battle_started = None; self.first_skill_at = None; self.first_capture_ms = None; self.countdown_origin_ms = None; self.countdown_end_ms = None; self.skill_by_inst.clear(); self.name_by_inst.clear(); }
-        let Some(path) = self.current_file.clone() else { self.status = "未找到 session_*.ndjson".into(); return; };
-        let Ok(bytes) = fs::read(&path) else { return; };
-        if self.offset > bytes.len() as u64 { self.offset = 0; }
-        let new = &bytes[self.offset as usize..];
-        for line in new.split(|b| *b == b'\n') {
-            if let Ok(text) = std::str::from_utf8(line) { if !text.trim().is_empty() { if let Ok(event) = serde_json::from_str::<Event>(text) { self.consume(event); } } }
+        for _ in 0..256 {
+            let event = self.capture.as_ref().and_then(|c| c.events.try_recv().ok());
+            let Some(event) = event else {
+                break;
+            };
+            self.consume(event);
         }
-        self.offset = bytes.len() as u64;
-        self.status = format!("{} · {} 个技能", path.file_name().unwrap_or_default().to_string_lossy(), self.actions.len());
-    }
-
-    fn consume(&mut self, e: Event) {
-        let kind = e.kind.unwrap_or_default();
-        let ts = e.timestamp_ms.unwrap_or(0);
-        let data = e.payload.unwrap_or_else(|| serde_json::Value::Object(e.rest));
-        let obj = data.as_object();
-        let in_battle = obj.and_then(|o| o.get("is_in_battle")).and_then(|v| v.as_bool());
-        if kind == "BattleOpModifyBattleState" && in_battle == Some(true) { self.begin(ts); }
-        if kind == "BattleOpModifyBattleState" && in_battle == Some(false) { self.finish(); }
-        if matches!(kind.as_str(), "SC_SYNC_WEEK_RAID_SETTLEMENT" | "SC_GAME_MECHANICS_SYNC_CHALLENGE_COMPLETE" | "SC_RESET_BATTLE_STATUS") { self.finish(); }
-        if kind == "SC_GAME_MECHANICS_SYNC_CHALLENGE_START" { if let Some(end) = obj.and_then(|o| o.get("challenge_expire_ts")).and_then(|v| v.as_i64()) { self.countdown_end_ms = Some(end); } self.begin(ts); }
-        if kind == "BattleOpSkillAttach" { if let (Some(inst), Some(skill)) = (obj.and_then(|o| o.get("skill_inst_id")).and_then(|v| v.as_i64()), obj.and_then(|o| o.get("template_str_id").or_else(|| o.get("template_int_id"))).map(value_text)) { self.skill_by_inst.insert(inst, skill); } }
-        if kind == "BattleOpSkillStartCast" {
-            let owner = obj.and_then(|o| o.get("owner_display_name").or_else(|| o.get("owner"))).and_then(|v| v.as_str()).unwrap_or("未知干员");
-            let inst = obj.and_then(|o| o.get("skill_inst_id")).and_then(|v| v.as_i64());
-            let skill = obj.and_then(|o| o.get("skill").or_else(|| o.get("skill_id"))).map(value_text).or_else(|| inst.and_then(|id| self.skill_by_inst.get(&id).cloned())).unwrap_or_default();
-            let action = classify(&skill);
-            let t = self.countdown(ts);
-            if self.first_skill_at.is_none() { self.first_skill_at = Some(Instant::now()); }
-            self.actions.push(Action { operator: clean_operator(owner), action, time: t, note: skill.to_string() });
+        let exit = self.capture.as_mut().map(|c| c.poll_exit());
+        match exit {
+            Some(Ok(Some(code))) => {
+                while let Some(event) = self.capture.as_ref().and_then(|c| c.events.try_recv().ok())
+                {
+                    self.consume(event);
+                }
+                self.capture = None;
+                if !self.status.starts_with("抓包失败") {
+                    self.status = if code.success() {
+                        "抓包已停止".into()
+                    } else {
+                        format!("抓包异常退出（{code}），请查看 capture.log")
+                    };
+                }
+                self.finish();
+            }
+            Some(Err(e)) => {
+                self.capture = None;
+                self.status = format!("抓包失败：{e}");
+            }
+            _ => {}
         }
     }
 
-    fn begin(&mut self, ts: i64) { self.battle_started = Some(Instant::now()); self.first_capture_ms = Some(ts); self.countdown_origin_ms = Some(ts); }
-    fn countdown(&self, ts: i64) -> Option<f64> { self.countdown_end_ms.map(|end| ((end - ts).max(0) as f64) / 1000.0).or_else(|| self.countdown_origin_ms.map(|origin| ((ts - origin).max(0) as f64) / 1000.0)) }
-    fn finish(&mut self) { if self.actions.is_empty() { return; } if self.auto_save { let _ = self.save_csv(); } self.battle_started = None; self.first_skill_at = None; self.first_capture_ms = None; self.countdown_origin_ms = None; }
-    fn save_csv(&self) -> std::io::Result<()> {
-        let dir = Path::new(&self.csv_dir); fs::create_dir_all(dir)?;
-        let stamp = chrono_like_stamp(); let path = dir.join(format!("endfield_rotation_{stamp}.csv"));
-        let mut w = csv::Writer::from_path(path)?; w.write_record(["operator", "action", "time", "note"])?;
-        for a in &self.actions { w.write_record([a.operator.as_str(), a.action.as_str(), &format_time(a.time), a.note.as_str()])?; } w.flush()
+    fn consume(&mut self, e: Value) {
+        let kind = e["type"].as_str().unwrap_or_default();
+        let ts = e["timestamp_ms"].as_i64().unwrap_or(0);
+        match kind {
+            "capture_error" => {
+                self.status = format!("抓包失败：{}", e["message"].as_str().unwrap_or("未知错误"));
+                self.show_settings = true;
+            }
+            "capture_status" => {
+                self.status = match e["state"].as_str().unwrap_or_default() {
+                    "waiting_restart" => "抓包已启动，请重启游戏以捕获握手",
+                    "waiting_game" => "抓包已启动，等待游戏",
+                    "waiting_connection" => "等待游戏连接",
+                    "waiting_handshake" => "等待登录握手",
+                    "live" => "实时抓包中",
+                    _ => "抓包已就绪",
+                }
+                .into()
+            }
+            "capture_metrics" => self.packets = e["packets"].as_u64().unwrap_or(0),
+            "capture_session" => {
+                if !self.finish() {
+                    return;
+                }
+                self.actions.clear();
+                self.saved_actions = 0;
+                self.skill_by_inst.clear();
+                self.name_by_inst.clear();
+                self.origin_ms = None;
+                self.countdown_end_ms = None;
+            }
+            "SC_SELF_SCENE_INFO" | "squad_update" => {
+                if let Some(members) = e["char_list"]
+                    .as_array()
+                    .or_else(|| e["members"].as_array())
+                {
+                    for member in members {
+                        if let (Some(id), Some(name)) = (
+                            member["battle_inst_id"].as_i64(),
+                            member["display_name"].as_str(),
+                        ) {
+                            self.name_by_inst.insert(id, name.to_owned());
+                        }
+                    }
+                }
+                self.set_countdown(&e["dungeon"]["challenge_expire_ts"]);
+            }
+            "BattleOpSkillAttach" => {
+                if let (Some(inst), Some(skill)) =
+                    (e["skill_inst_id"].as_i64(), e["template_str_id"].as_str())
+                {
+                    self.skill_by_inst.insert(inst, skill.into());
+                }
+            }
+            "BattleOpSkillDetach" => {
+                if let Some(inst) = e["skill_inst_id"].as_i64() {
+                    self.skill_by_inst.remove(&inst);
+                }
+            }
+            "SC_GAME_MECHANICS_SYNC_CHALLENGE_START" => {
+                if !self.begin(ts) {
+                    return;
+                }
+                self.set_countdown(&e["challenge_expire_ts"]);
+            }
+            "BattleOpModifyBattleState" => match e["is_in_battle"].as_bool() {
+                Some(true) => {
+                    if self.origin_ms.is_none() {
+                        self.begin(ts);
+                    }
+                }
+                Some(false) => {
+                    self.finish();
+                }
+                _ => {}
+            },
+            "SC_SYNC_WEEK_RAID_SETTLEMENT"
+            | "SC_GAME_MECHANICS_SYNC_CHALLENGE_COMPLETE"
+            | "SC_RESET_BATTLE_STATUS"
+            | "SC_GAME_MECHANICS_SYNC_RESTART_GAME_INST" => {
+                self.finish();
+                self.origin_ms = None;
+                self.countdown_end_ms = None;
+            }
+            "BattleOpSkillStartCast" => {
+                let skill = e["skill_inst_id"]
+                    .as_i64()
+                    .and_then(|id| self.skill_by_inst.get(&id))
+                    .cloned()
+                    .unwrap_or_default();
+                let Some(owner) = e["owner_id"]
+                    .as_i64()
+                    .and_then(|id| self.name_by_inst.get(&id))
+                    .cloned()
+                else {
+                    return;
+                };
+                if self.origin_ms.is_none() && !self.begin(ts) {
+                    return;
+                }
+                let time = self
+                    .countdown_end_ms
+                    .map(|end| (end - ts).max(0))
+                    .unwrap_or_else(|| (ts - self.origin_ms.unwrap_or(ts)).max(0))
+                    as f64
+                    / 1000.0;
+                self.actions.push(Action {
+                    operator: owner,
+                    action: classify(&skill).into(),
+                    time,
+                    note: skill,
+                });
+            }
+            _ => {}
+        }
+    }
+
+    fn set_countdown(&mut self, value: &Value) {
+        if let Some(end) = value
+            .as_i64()
+            .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+            .filter(|end| *end > 0)
+        {
+            self.countdown_end_ms = Some(if end < 100_000_000_000 {
+                end * 1000
+            } else {
+                end
+            });
+        }
+    }
+
+    fn begin(&mut self, ts: i64) -> bool {
+        if !self.finish() {
+            return false;
+        }
+        self.actions.clear();
+        self.saved_actions = 0;
+        self.origin_ms = Some(ts);
+        true
+    }
+
+    fn finish(&mut self) -> bool {
+        if self.auto_save && self.actions.len() > self.saved_actions {
+            match self.save_csv() {
+                Ok(_) => self.saved_actions = self.actions.len(),
+                Err(e) => {
+                    self.status = format!("CSV 保存失败：{e}");
+                    return false;
+                }
+            }
+        }
+        self.origin_ms = None;
+        true
+    }
+
+    fn save_csv(&self) -> std::io::Result<PathBuf> {
+        let dir = Path::new(&self.csv_dir);
+        fs::create_dir_all(dir)?;
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let path = dir.join(format!("endfield_rotation_{stamp}.csv"));
+        let mut w = csv::Writer::from_path(&path)?;
+        w.write_record(["operator", "action", "time", "note"])?;
+        for a in &self.actions {
+            w.write_record([&a.operator, &a.action, &format_time(a.time), &a.note])?;
+        }
+        w.flush()?;
+        Ok(path)
     }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if self.last_tick.elapsed() >= Duration::from_millis(500) { self.poll(); self.last_tick = Instant::now(); ctx.request_repaint(); }
+        self.poll();
+        ctx.request_repaint_after(Duration::from_millis(100));
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+            600.0,
+            if self.show_settings { 300.0 } else { 34.0 },
+        )));
         egui::CentralPanel::default().show(ctx, |ui| {
-            let elapsed = self.first_skill_at.map(|t| t.elapsed().as_secs_f32()).unwrap_or(0.0);
             ui.spacing_mut().item_spacing = egui::vec2(3.0, 2.0);
             ui.horizontal(|ui| {
-                let drag = ui.add(egui::Label::new(format!("{} · {} 技能 · {:.1}s", self.status, self.actions.len(), elapsed)).sense(egui::Sense::drag()));
-                if drag.dragged() { ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag); }
-                if ui.small_button("扫描").clicked() { self.poll(); }
-                if ui.small_button("存").clicked() { self.status = match self.save_csv() { Ok(()) => "已保存".into(), Err(e) => format!("失败：{e}") }; }
-                if ui.small_button(if self.show_settings { "收" } else { "⚙" }).clicked() {
-                    self.show_settings = !self.show_settings;
-                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(430.0, if self.show_settings { 220.0 } else { 34.0 })));
+                let drag = ui
+                    .add_sized(
+                        [365.0, 18.0],
+                        egui::Label::new(format!(
+                            "{} · {} 包 · {} 动作",
+                            self.status,
+                            self.packets,
+                            self.actions.len()
+                        ))
+                        .truncate()
+                        .sense(egui::Sense::drag()),
+                    )
+                    .on_hover_text(&self.status);
+                if drag.dragged() {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
-                if ui.small_button("×").clicked() { ctx.send_viewport_cmd(egui::ViewportCommand::Close); }
+                if self.capture.is_some() {
+                    if ui.small_button("停止").clicked() {
+                        self.capture.as_mut().unwrap().stop();
+                        self.status = "正在停止抓包".into();
+                    }
+                } else if ui.small_button("抓包").clicked() {
+                    self.start();
+                }
+                if ui.small_button("存").clicked() {
+                    self.status = match self.save_csv() {
+                        Ok(_) => {
+                            self.saved_actions = self.actions.len();
+                            "CSV 已保存".into()
+                        }
+                        Err(e) => format!("CSV 保存失败：{e}"),
+                    };
+                }
+                if ui
+                    .small_button(if self.show_settings { "收" } else { "设置" })
+                    .clicked()
+                {
+                    self.show_settings = !self.show_settings;
+                }
+                if ui.small_button("×").clicked() {
+                    self.finish();
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
             });
             if self.show_settings {
                 ui.separator();
                 ui.checkbox(&mut self.auto_save, "战斗结束自动保存");
-                ui.label("日志目录"); ui.text_edit_singleline(&mut self.log_dir);
-                ui.label("CSV 保存目录"); ui.text_edit_singleline(&mut self.csv_dir);
-                egui::ScrollArea::vertical().max_height(100.0).show(ui, |ui| { for (i, a) in self.actions.iter().enumerate() { ui.label(format!("{} {} {} {}", i + 1, a.operator, a.action, format_time(a.time))); } });
+                ui.label("游戏目录（留空自动检测，修改后重新抓包）");
+                ui.text_edit_singleline(&mut self.game_dir);
+                ui.label("CSV 保存目录");
+                ui.text_edit_singleline(&mut self.csv_dir);
+                ui.label("先开始抓包，再启动游戏；已进入游戏时请重启游戏。");
+                ui.label("抓包需要安装 Npcap；若驱动限制权限，请以管理员身份运行。");
+                egui::ScrollArea::vertical()
+                    .max_height(110.0)
+                    .show(ui, |ui| {
+                        for a in &self.actions {
+                            ui.label(format!(
+                                "{} {} {}",
+                                a.operator,
+                                a.action,
+                                format_time(a.time)
+                            ));
+                        }
+                    });
             }
         });
     }
 }
 
-fn newest_session(dir: &Path) -> Option<PathBuf> { let mut files: Vec<_> = fs::read_dir(dir).ok()?.filter_map(Result::ok).map(|e| e.path()).filter(|p| p.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("session_") && n.ends_with(".ndjson")).unwrap_or(false)).collect(); files.sort_by_key(|p| fs::metadata(p).and_then(|m| m.modified()).ok()); files.pop() }
-fn default_log_dir() -> PathBuf {
-    let mut candidates = Vec::new();
-    if let Some(documents) = dirs::document_dir() {
-        if let Ok(entries) = fs::read_dir(&documents) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("EndfieldLogsClient")).unwrap_or(false) {
-                    candidates.push(path.join("EndfieldLogsClient").join("logs"));
-                }
-            }
-        }
+impl Drop for App {
+    fn drop(&mut self) {
+        self.finish();
     }
-    if let Some(local) = dirs::data_local_dir() { candidates.push(local.join("EndfieldPCAP").join("logs")); }
-    if let Ok(exe) = std::env::current_exe() { candidates.push(exe.parent().unwrap_or(Path::new(".")).join("logs")); }
-    candidates.into_iter().find(|path| path.exists()).unwrap_or_else(|| PathBuf::from("logs"))
 }
-fn clean_operator(s: &str) -> String { s.split('_').next().unwrap_or(s).to_string() }
-fn value_text(v: &serde_json::Value) -> String { v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string().trim_matches('"').to_string()) }
-fn classify(s: &str) -> String { let s = s.to_lowercase(); if s.contains("ultimate") || s.contains("skill_3") { "大招".into() } else if s.contains("combo") { "连携".into() } else if s.contains("skill") { "战技".into() } else { "其他".into() } }
-fn format_time(v: Option<f64>) -> String { v.map(|x| format!("{}:{:06.3}", (x / 60.0).floor() as i64, x % 60.0)).unwrap_or_default() }
-fn chrono_like_stamp() -> String { use std::time::{SystemTime, UNIX_EPOCH}; SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs().to_string()).unwrap_or_else(|_| "now".into()) }
+
+fn classify(skill: &str) -> &str {
+    if skill.contains("ultimate") {
+        "大招"
+    } else if skill.contains("combo") {
+        "连携"
+    } else if skill.contains("normal_skill") {
+        "战技"
+    } else if skill.contains("dodge") {
+        "闪避"
+    } else if skill.contains("power_attack") {
+        "重击"
+    } else if skill.contains("attack") {
+        "普攻"
+    } else {
+        "其他"
+    }
+}
+fn format_time(t: f64) -> String {
+    format!("{}:{:06.3}", (t / 60.0).floor() as i64, t % 60.0)
+}
 
 fn main() -> eframe::Result<()> {
-    let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([430.0, 34.0]).with_min_inner_size([300.0, 28.0]).with_resizable(false).with_decorations(false).with_always_on_top(), ..Default::default() };
-    eframe::run_native("终末地排轴", options, Box::new(|cc| {
-        install_cjk_font(&cc.egui_ctx);
-        Ok(Box::new(App::default()))
-    }))
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([600.0, 34.0])
+            .with_min_inner_size([300.0, 28.0])
+            .with_resizable(false)
+            .with_decorations(false)
+            .with_always_on_top(),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "终末地排轴",
+        options,
+        Box::new(|cc| {
+            install_cjk_font(&cc.egui_ctx);
+            let mut app = App::default();
+            app.start();
+            Ok(Box::new(app))
+        }),
+    )
 }
 
 fn install_cjk_font(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
-    for path in [r"C:\Windows\Fonts\simhei.ttf", r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\simsun.ttc"] {
+    for path in [
+        r"C:\Windows\Fonts\simhei.ttf",
+        r"C:\Windows\Fonts\msyh.ttc",
+        r"C:\Windows\Fonts\simsun.ttc",
+    ] {
         if let Ok(bytes) = fs::read(path) {
-            fonts.font_data.insert("cjk".into(), egui::FontData::from_owned(bytes).into());
+            fonts
+                .font_data
+                .insert("cjk".into(), egui::FontData::from_owned(bytes).into());
             for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-                fonts.families.entry(family).or_default().insert(0, "cjk".into());
+                fonts
+                    .families
+                    .entry(family)
+                    .or_default()
+                    .insert(0, "cjk".into());
             }
             ctx.set_fonts(fonts);
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn battle(app: &mut App) {
+        app.consume(json!({"type":"capture_session", "session_id":"one"}));
+        app.consume(json!({"type":"SC_SELF_SCENE_INFO", "char_list":[{"battle_inst_id":42,"display_name":"提弗洛斯"}], "dungeon":{"challenge_expire_ts":"1800000420"}}));
+        app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":7, "template_str_id":"chr_0042_normal_skill"}));
+        app.consume(json!({"type":"BattleOpModifyBattleState", "is_in_battle":true, "timestamp_ms":1800000000000_i64}));
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7, "timestamp_ms":1800000001250_i64}));
+    }
+
+    #[test]
+    fn live_events_export_named_actions_and_countdown_without_duplicate_settlements() {
+        let dir = std::env::temp_dir().join(format!(
+            "endfield-test-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut app = App::default();
+        app.csv_dir = dir.to_string_lossy().into_owned();
+        battle(&mut app);
+        assert_eq!(app.actions[0].operator, "提弗洛斯");
+        assert_eq!(app.actions[0].action, "战技");
+        assert_eq!(format_time(app.actions[0].time), "6:58.750");
+        app.consume(json!({"type":"SC_GAME_MECHANICS_SYNC_CHALLENGE_COMPLETE"}));
+        app.consume(json!({"type":"SC_SYNC_WEEK_RAID_SETTLEMENT"}));
+        let files: Vec<_> = fs::read_dir(&dir).unwrap().map(Result::unwrap).collect();
+        assert_eq!(files.len(), 1);
+        let mut reader = csv::Reader::from_path(files[0].path()).unwrap();
+        let row = reader.records().next().unwrap().unwrap();
+        assert_eq!(&row[0], "提弗洛斯");
+        assert_eq!(&row[2], "6:58.750");
+        fs::remove_file(files[0].path()).unwrap();
+        fs::remove_dir(dir).unwrap();
+    }
+
+    #[test]
+    fn new_session_clears_old_identity_and_ignores_enemy_casts() {
+        let mut app = App::default();
+        app.auto_save = false;
+        battle(&mut app);
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":99, "skill_inst_id":7}));
+        assert_eq!(app.actions.len(), 1);
+        app.consume(json!({"type":"capture_session", "session_id":"two"}));
+        assert!(app.actions.is_empty());
+        assert!(app.name_by_inst.is_empty());
+        assert!(app.skill_by_inst.is_empty());
+        assert!(app.countdown_end_ms.is_none());
+    }
+
+    #[test]
+    fn failed_save_keeps_actions_and_reports_the_error() {
+        let mut app = App::default();
+        app.auto_save = false;
+        battle(&mut app);
+        app.csv_dir = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        app.auto_save = true;
+        assert!(!app.finish());
+        assert_eq!(app.actions.len(), 1);
+        assert!(app.status.starts_with("CSV 保存失败"));
     }
 }
