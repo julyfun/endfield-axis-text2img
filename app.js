@@ -47,9 +47,9 @@ function parseTable(text) {
     if ([...note].length > 36) throw new Error(`第 ${index + 2} 行：备注最多 36 个字`);
     let time = null;
     if (rawTime) {
-      const match = /^(?:(\d*):)?(\d{1,2})$/.exec(rawTime);
-      if (!match || Number(match[2]) > 59) throw new Error(`第 ${index + 2} 行：时间格式应为 :57 或 1:57`);
-      time = Number(match[1] || 0) * 60 + Number(match[2]);
+      const match = /^(\d+):([0-5]\d)$/.exec(rawTime);
+      if (!match) throw new Error(`第 ${index + 2} 行：时间格式应为 6:57`);
+      time = Number(match[1]) * 60 + Number(match[2]);
       if (time > previous) throw new Error(`第 ${index + 2} 行：时间不能上升`);
       previous = time;
     }
@@ -102,25 +102,32 @@ function arrow(x1, y1, x2, y2) {
 
 function timeLabel(seconds) {
   const whole = Math.floor(seconds);
-  return `${whole >= 60 ? Math.floor(whole / 60) : ''}:${String(whole % 60).padStart(2, '0')}`;
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
+
+function sameSecond(a, b) { return a.time !== null && a.time === b.time; }
+function nodeGap(a, b) { return sameSecond(a, b) ? 144 : 184; }
 
 function layout(steps, width) {
   const start = Math.floor(steps[0].position / 10);
   const end = Math.floor(steps.at(-1).position / 10);
   const lanes = Array.from({ length: start - end + 1 }, (_, i) => ({ bucket: start - i, nodes: [] }));
   steps.forEach((step, index) => lanes[start - Math.floor(step.position / 10)].nodes.push({ ...step, index }));
-  const left = 145, right = width - 145, gap = 148;
+  const left = 145, right = width - 145;
   lanes.forEach((lane, row) => {
     const low = lane.bucket * 10;
     lane.nodes.forEach((node, i) => {
       const target = left + ((low + 10 - node.position) / 10) * (right - left);
-      node.u = i ? Math.max(target, lane.nodes[i - 1].u + gap) : Math.max(left, target);
+      node.u = i ? Math.max(target, lane.nodes[i - 1].u + nodeGap(lane.nodes[i - 1], node)) : Math.max(left, target);
     });
     if (lane.nodes.length) {
       lane.nodes.at(-1).u = Math.min(right, lane.nodes.at(-1).u);
-      for (let i = lane.nodes.length - 2; i >= 0; i--) lane.nodes[i].u = Math.min(lane.nodes[i].u, lane.nodes[i + 1].u - gap);
-      if (lane.nodes[0].u < left) lane.nodes.forEach((node, i) => { node.u = left + i * (right - left) / Math.max(1, lane.nodes.length - 1); });
+      for (let i = lane.nodes.length - 2; i >= 0; i--) lane.nodes[i].u = Math.min(lane.nodes[i].u, lane.nodes[i + 1].u - nodeGap(lane.nodes[i], lane.nodes[i + 1]));
+      if (lane.nodes[0].u < left) {
+        const span = lane.nodes.slice(1).reduce((sum, node, i) => sum + nodeGap(lane.nodes[i], node), 0);
+        let x = Math.max(left, Math.min(left + ((low + 10 - lane.nodes[0].position) / 10) * (right - left), right - span));
+        lane.nodes.forEach((node, i) => { x += i ? nodeGap(lane.nodes[i - 1], node) : 0; node.u = x; });
+      }
     }
     lane.nodes.forEach(node => { node.x = row % 2 ? width - node.u : node.u; });
   });
@@ -158,9 +165,10 @@ function drawNode(node, y) {
 }
 
 function draw(steps) {
-  const counts = new Map();
-  steps.forEach(step => { const key = Math.floor(step.position / 10); counts.set(key, (counts.get(key) || 0) + 1); });
-  const width = Math.max(1800, Math.max(...counts.values()) * 158 + 320);
+  const groups = new Map();
+  steps.forEach(step => { const key = Math.floor(step.position / 10); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(step); });
+  const span = Math.max(...[...groups.values()].map(group => group.slice(1).reduce((sum, node, i) => sum + nodeGap(group[i], node), 0)));
+  const width = Math.max(1800, span + 360);
   const lanes = layout(steps, width);
   const height = 300 + lanes.length * 340 + 100;
   canvas.width = width; canvas.height = height;
@@ -184,7 +192,7 @@ function draw(steps) {
       line(routeX, previous.y, routeX, y, '#dce83d', 3);
       arrow(routeX, y, lane.nodes[0].x - direction * 70, y);
     }
-    lane.nodes.forEach((node, i) => { if (i) arrow(lane.nodes[i - 1].x + direction * 69, y, node.x - direction * 70, y); });
+    lane.nodes.forEach((node, i) => { if (i && !sameSecond(lane.nodes[i - 1], node)) arrow(lane.nodes[i - 1].x + direction * 69, y, node.x - direction * 70, y); });
     lane.nodes.forEach(node => drawNode(node, y));
     if (lane.nodes.length) previous = { x: lane.nodes.at(-1).x, y, direction };
   });
