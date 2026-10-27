@@ -154,7 +154,9 @@ function timeLabel(seconds) {
 }
 
 function closeTogether(a, b) { return a.position - b.position <= renderStyle.group_threshold + 1e-10; }
-function nodeGap(a, b) { return closeTogether(a, b) ? renderStyle.close_node_gap : renderStyle.min_group_gap; }
+function nodeGap(a, b) {
+  return closeTogether(a, b) ? renderStyle.close_node_gap : renderStyle.min_group_gap + renderStyle.node_radius * 2;
+}
 
 function layout(steps, width, rowSeconds) {
   const start = Math.floor(steps[0].position / rowSeconds);
@@ -168,7 +170,7 @@ function layout(steps, width, rowSeconds) {
       const target = left + ((low + rowSeconds - node.position) / rowSeconds) * (right - left);
       if (i) {
         const gap = nodeGap(lane.nodes[i - 1], node);
-        node.u = Math.max(Math.min(target, lane.nodes[i - 1].u + renderStyle.max_group_gap), lane.nodes[i - 1].u + gap);
+        node.u = Math.max(Math.min(target, lane.nodes[i - 1].u + renderStyle.max_group_gap + renderStyle.node_radius * 2), lane.nodes[i - 1].u + gap);
       } else node.u = Math.max(left, target);
     });
     if (lane.nodes.length) {
