@@ -8,4 +8,6 @@ YAML 顶层可设置 `title` 和 `row_seconds`。`steps` 每行按“干员、�
 
 [示例 YAML](examples/rotation.yaml) 与 [示例输出](examples/rotation.png) 对应。原输入中一行包含多个动作的地方已拆成多个节点；原先未指明执行者的重击，示例暂按赛希、诀分别标注，可直接在 YAML 中修改。无直接属性伤害的辅助动作标为“无”。
 
+[透明视频测试片](examples/alpha-test.mov) 是 3 秒、1080p、30 fps 的 ProRes 4444 MOV。导入必剪后放在录屏上方，检查画面上部能否透出录屏、下方半透明面板能否正常合成；此文件仅用于验证必剪的 Alpha 导入，不对应示例 YAML 的完整时间轴。
+
 图片及五属性展示色来自 AKEData，详见 [来源记录](assets/sources.csv) 和 [配色](assets/elements.yaml)。新增干员时使用 [.agents/skills/akedata-assets/SKILL.md](.agents/skills/akedata-assets/SKILL.md) 获取对应素材。YAML 解析器采用仓库内的 js-yaml（MIT 许可）。
