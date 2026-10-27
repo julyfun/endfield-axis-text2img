@@ -73,18 +73,42 @@ def verify_protocols() -> None:
     required = (
         "CS_BATTLE_OP", "CS_PING", "SC_PING", "SC_SELF_SCENE_INFO",
         "SC_GAME_MECHANICS_SYNC_CHALLENGE_START", "SC_GAME_MECHANICS_SYNC_CHALLENGE_COMPLETE",
+        "SC_CHAR_BAG_SET_TEAM_LEADER",
     )
     missing = [name for name in required if registry.load_message_class(name) is None]
     if missing:
         raise RuntimeError("抓包组件缺少协议模块，请重新构建完整发行包：" + ", ".join(missing))
 
 
+def leader_tracking_pipeline():
+    from endfield_pcap.service import SessionPipeline
+
+    if getattr(SessionPipeline, "tracks_leader", False):
+        return SessionPipeline
+
+    class LeaderTrackingPipeline(SessionPipeline):
+        tracks_leader = True
+
+        def _handle_message(self, decoded, timestamp_ms):
+            if decoded.class_name == "SC_CHAR_BAG_SET_TEAM_LEADER":
+                leader = int(decoded.message.leaderid)
+                for member in self.squad_index.values():
+                    member.is_leader = member.obj_id == leader
+                self._emit_scene_info_event(timestamp_ms)
+            super()._handle_message(decoded, timestamp_ms)
+
+    return LeaderTrackingPipeline
+
+
 async def capture(args) -> None:
+    import endfield_pcap.service as core_service
     from endfield_pcap.install_detect import detect_game_dll_dir
     from endfield_pcap.models import ServiceObserver
     from endfield_pcap.packet_resolver import PacketResolver
     from endfield_pcap.runtime_paths import bundle_root
     from endfield_pcap.service import DamageLogService, ServiceConfig
+
+    core_service.SessionPipeline = leader_tracking_pipeline()
 
     game_dir = args.game_dir or detect_game_dll_dir()
     if game_dir is None or not (game_dir / "GameAssembly.dll").is_file():

@@ -8,19 +8,41 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from collections import Counter
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import worker
 
 worker.configure_core(Path(os.environ["ENDFIELD_CAPTURE_CORE"]))
-from endfield_pcap.models import RuntimeMetrics
+from endfield_pcap.models import RuntimeMetrics, SquadMember
 from endfield_pcap.packet_resolver import PacketResolver
 from endfield_pcap.proto_generated.CS_BATTLE_OP_pb2 import CS_BATTLE_OP
 from endfield_pcap.proto_generated.SC_SELF_SCENE_INFO_pb2 import SC_SELF_SCENE_INFO
+from endfield_pcap.proto_generated.SC_CHAR_BAG_SET_TEAM_LEADER_pb2 import SC_CHAR_BAG_SET_TEAM_LEADER
 from endfield_pcap.service import SessionPipeline
 
 
 class WorkerTests(unittest.TestCase):
+    def test_server_leader_switch_updates_battle_owner_before_next_cast(self):
+        pipeline_class = worker.leader_tracking_pipeline()
+        pipeline = pipeline_class.__new__(pipeline_class)
+        pipeline.squad_index = {
+            42: SquadMember(42, 1001, "chr_test", "A", True, 0),
+            43: SquadMember(43, 1002, "chr_other", "B", False, 1),
+        }
+        pipeline.decoded_class_counts = Counter()
+        pipeline.on_debug_message = None
+        pipeline._emit_scene_info_event = Mock()
+        pipeline._emit_loadout_event = Mock()
+        message = SC_CHAR_BAG_SET_TEAM_LEADER(leaderid=1002)
+        decoded = SimpleNamespace(class_name="SC_CHAR_BAG_SET_TEAM_LEADER",
+                                  message=SC_CHAR_BAG_SET_TEAM_LEADER.FromString(message.SerializeToString()))
+        pipeline._handle_message(decoded, 1234)
+        self.assertFalse(pipeline.squad_index[42].is_leader)
+        self.assertTrue(pipeline.squad_index[43].is_leader)
+        pipeline._emit_scene_info_event.assert_called_once_with(1234)
+
     def test_real_skill_table_stages_finishers_execution_and_ai_filters(self):
         rules = worker.EventSink(PacketResolver()).rules
         expected = {

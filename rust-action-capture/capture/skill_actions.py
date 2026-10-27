@@ -60,6 +60,7 @@ def write_maps(core: Path, output: Path):
         "rules": {"note": "always empty", "dodge": "opt-in; AI always excluded",
                   "common": "excluded except manual dodge", "attack": "only final numbered segment = 重击",
                   "power_attack": "处决 (CharacterPowerAttack); pending live execution confirmation",
+                  "control": "heavy attacks and dodges require known current leader; updated from SC_CHAR_BAG_SET_TEAM_LEADER",
                   "stages": "ordered exact skill variants, not cast counts"},
         "heavy_attack_skills": sorted(rules.finishers),
         "battle_skill_stages": dict(sorted(rules.stages.items())),

@@ -28,6 +28,7 @@ struct App {
     saved_actions: usize,
     skill_by_inst: HashMap<i64, String>,
     name_by_inst: HashMap<i64, String>,
+    leader: Option<i64>,
     status: String,
     packets: u64,
     auto_save: bool,
@@ -51,6 +52,7 @@ impl Default for App {
             saved_actions: 0,
             skill_by_inst: HashMap::new(),
             name_by_inst: HashMap::new(),
+            leader: None,
             status: "未开始抓包".into(),
             packets: 0,
             auto_save: true,
@@ -136,6 +138,7 @@ impl App {
                 self.saved_actions = 0;
                 self.skill_by_inst.clear();
                 self.name_by_inst.clear();
+                self.leader = None;
                 self.origin_ms = None;
                 self.countdown_end_ms = None;
             }
@@ -144,6 +147,10 @@ impl App {
                     .as_array()
                     .or_else(|| e["members"].as_array())
                 {
+                    self.leader = members
+                        .iter()
+                        .find(|m| m["is_leader"].as_bool() == Some(true))
+                        .and_then(|m| m["battle_inst_id"].as_i64());
                     for member in members {
                         if let (Some(id), Some(name)) = (
                             member["battle_inst_id"].as_i64(),
@@ -203,6 +210,11 @@ impl App {
                 if action.is_empty() || (action == "闪避" && !self.record_dodges) {
                     return;
                 };
+                if matches!(action.as_str(), "重击" | "闪避")
+                    && (self.leader.is_none() || e["owner_id"].as_i64() != self.leader)
+                {
+                    return;
+                }
                 let Some(owner) = e["owner_id"]
                     .as_i64()
                     .and_then(|id| self.name_by_inst.get(&id))
@@ -434,7 +446,7 @@ mod tests {
 
     fn battle(app: &mut App) {
         app.consume(json!({"type":"capture_session", "session_id":"one"}));
-        app.consume(json!({"type":"SC_SELF_SCENE_INFO", "char_list":[{"battle_inst_id":42,"display_name":"提弗洛斯"}], "dungeon":{"challenge_expire_ts":"1800000420"}}));
+        app.consume(json!({"type":"SC_SELF_SCENE_INFO", "char_list":[{"battle_inst_id":42,"display_name":"提弗洛斯","is_leader":true}], "dungeon":{"challenge_expire_ts":"1800000420"}}));
         app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":7, "action":"战技"}));
         app.consume(json!({"type":"BattleOpModifyBattleState", "is_in_battle":true, "timestamp_ms":1800000000000_i64}));
         app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7, "timestamp_ms":1800000001250_i64}));
@@ -533,6 +545,27 @@ mod tests {
         assert_eq!(app.actions.len(), count);
         fs::remove_file(path).unwrap();
         fs::remove_dir(dir).unwrap();
+    }
+
+    #[test]
+    fn heavy_attacks_follow_leader_switches_and_ignore_unknown_leader() {
+        let mut app = App::default();
+        app.auto_save = false;
+        battle(&mut app);
+        app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":8,"action":"重击"}));
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42,"skill_inst_id":8}));
+        assert_eq!(app.actions.len(), 2);
+        app.consume(json!({"type":"SC_SELF_SCENE_INFO", "char_list":[
+            {"battle_inst_id":42,"display_name":"提弗洛斯","is_leader":false},
+            {"battle_inst_id":43,"display_name":"祀","is_leader":true}]}));
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42,"skill_inst_id":8}));
+        assert_eq!(app.actions.len(), 2);
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":43,"skill_inst_id":8}));
+        assert_eq!(app.actions.len(), 3);
+        assert_eq!(app.actions.last().unwrap().operator, "祀");
+        app.leader = None;
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":43,"skill_inst_id":8}));
+        assert_eq!(app.actions.len(), 3);
     }
 
     #[test]
