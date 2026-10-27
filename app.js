@@ -238,10 +238,10 @@ function drawNode(node, y, showTime, direction = 1, showNote = true) {
   const label = node.action === '其他' ? node.note || node.action : node.action;
   ctx.font = renderStyle.label_font;
   const labelWidth = ctx.measureText(label).width;
-  text(label, x, y - 78, renderStyle.label_font, renderStyle.label_color, 'center');
+  text(label, x, y - renderStyle.label_y_offset, renderStyle.label_font, renderStyle.label_color, 'center');
   if (showTime) {
     const timeX = direction > 0 ? x - labelWidth / 2 - 12 : x + labelWidth / 2 + 12;
-    text(timeLabel(node.time), timeX, y - 78, renderStyle.time_font, renderStyle.ultimate_accent, direction > 0 ? 'right' : 'left');
+    text(timeLabel(node.time), timeX, y - renderStyle.label_y_offset, renderStyle.time_font, renderStyle.ultimate_accent, direction > 0 ? 'right' : 'left');
   }
   drawKey(node, x, y + 98);
   if (showNote) {
