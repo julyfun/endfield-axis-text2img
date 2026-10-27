@@ -26,8 +26,10 @@ function parseDocument(source, configSource) {
   const config = TOML.parse(configSource.trim());
   const rowSeconds = config.row_seconds ?? 10;
   const title = config.title || '战斗技能时间轴';
+  const timeline = config.timeline ?? '';
   if (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60) throw new Error('row_seconds 需要 1–60 的整数');
   if (typeof title !== 'string' || [...title].length > 14) throw new Error('title 最多 14 个字');
+  if (typeof timeline !== 'string' || [...timeline].length > 40) throw new Error('timeline 需要不超过 40 个字的字符串');
   const aliases = { ...defaultAliases, ...config.aliases };
   const resolve = name => aliases[name] || name;
   const party = config.operators ?? defaultParty;
@@ -59,7 +61,7 @@ function parseDocument(source, configSource) {
     return { operator, action, time, position: time, specifiedTime: Boolean(rawTime), note, slot: slots.indexOf(operator) + 1, element: operators[operator].elements[action] || null };
   });
   if (!steps.length) throw new Error('至少需要一条动作');
-  return { title, rowSeconds, steps };
+  return { title, rowSeconds, timeline: timeline.trim(), steps };
 }
 
 function assetName(step) {
@@ -76,7 +78,7 @@ function loadImage(name) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error(`无法加载图片：${name}`));
-    image.src = name.startsWith('mouse-') ? `assets/keys/${name}.svg` : `${base}${name}.png`;
+    image.src = name === 'endfield-logo' ? 'assets/endfield-logo.svg' : name.startsWith('mouse-') ? `assets/keys/${name}.svg` : `${base}${name}.png`;
   }));
   return imageTasks.get(name);
 }
@@ -188,7 +190,7 @@ function drawNode(node, y, showTime) {
   for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 169 + i / 9 * 18, '600 20px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
 }
 
-function draw({ title, rowSeconds, steps }) {
+function draw({ title, rowSeconds, timeline, steps }) {
   const groups = new Map();
   steps.forEach(step => { const key = Math.floor(step.position / rowSeconds); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(step); });
   const span = Math.max(...[...groups.values()].map(group => group.slice(1).reduce((sum, node, i) => sum + nodeGap(group[i], node), 0)));
@@ -229,8 +231,11 @@ function draw({ title, rowSeconds, steps }) {
   });
   const foot = height - 65;
   line(75, foot - 26, width - 75, foot - 26, '#5b665e');
-  text('战斗轴 / COMBAT ROTATION', 75, foot + 13, '800 20px Arial, "PingFang SC", sans-serif');
-  text('ART: AKEDATA  /  FAN TOOL', width - 75, foot + 13, '700 17px Arial', '#dce83d', 'right');
+  text(`制作：@菲比是拉拉${timeline ? ` | Timeline：${timeline}` : ''}`, 75, foot + 13, '800 20px Arial, "PingFang SC", sans-serif');
+  const logo = images.get('endfield-logo'), logoWidth = 205;
+  ctx.save(); ctx.filter = 'invert(1)';
+  ctx.drawImage(logo, width - 75 - logoWidth, foot - 22, logoWidth, logoWidth * logo.height / logo.width);
+  ctx.restore();
   dimensions.textContent = `${width} × ${height} PX`;
 }
 
@@ -241,6 +246,7 @@ async function render() {
     const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
     const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, assetName(step)].filter(Boolean)));
+    names.add('endfield-logo');
     if (steps.some(step => ['普攻', '重击'].includes(step.action))) names.add('mouse-left');
     if (steps.some(step => step.action === '闪避')) names.add('mouse-right');
     colors = await colorsTask;
