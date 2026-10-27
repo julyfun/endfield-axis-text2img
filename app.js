@@ -46,25 +46,19 @@ function parseDocument(source, configSource) {
     if (!actions.has(action)) throw new Error(`第 ${index + 2} 行：未知动作 ${action || '（空）'}`);
     if (action === '其他' && (!note || [...note].length > 7)) throw new Error(`第 ${index + 2} 行：其他动作的备注需要 1–7 个字`);
     if ([...note].length > 36) throw new Error(`第 ${index + 2} 行：备注最多 36 个字`);
-    let time = null;
+    let time = previous;
     if (rawTime) {
-      const match = /^(\d+):([0-5]\d)$/.exec(rawTime);
-      if (!match) throw new Error(`第 ${index + 2} 行：时间格式应为 6:57`);
-      time = Number(match[1]) * 60 + Number(match[2]);
+      const match = /^(\d+):([0-5]\d)(?:\.(\d+))?$/.exec(rawTime);
+      if (!match) throw new Error(`第 ${index + 2} 行：时间格式应为 6:57 或 6:42.012`);
+      time = Number(match[1]) * 60 + Number(match[2]) + Number(`0.${match[3] || '0'}`);
       if (time > previous) throw new Error(`第 ${index + 2} 行：时间不能上升`);
       previous = time;
+    } else if (index === 0) {
+      throw new Error('第 2 行：首条动作必须填写时间');
     }
-    return { operator, action, time, note, slot: slots.indexOf(operator) + 1, element: operators[operator].elements[action] || null };
+    return { operator, action, time, position: time, specifiedTime: Boolean(rawTime), note, slot: slots.indexOf(operator) + 1, element: operators[operator].elements[action] || null };
   });
-  if (!steps.length || steps.every(step => step.time === null)) throw new Error('至少需要一条动作和一个时间');
-  const known = steps.map((step, i) => step.time === null ? -1 : i).filter(i => i >= 0);
-  steps.forEach((step, i) => {
-    if (step.time !== null) { step.position = step.time; return; }
-    const before = known.findLast(k => k < i), after = known.find(k => k > i);
-    if (before === undefined) step.position = steps[after].time;
-    else if (after === undefined) step.position = steps[before].time;
-    else step.position = steps[before].time + (steps[after].time - steps[before].time) * (i - before) / (after - before);
-  });
+  if (!steps.length) throw new Error('至少需要一条动作');
   return { title, rowSeconds, steps };
 }
 
@@ -110,8 +104,8 @@ function timeLabel(seconds) {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
 
-function sameSecond(a, b) { return a.time !== null && a.time === b.time; }
-function nodeGap(a, b) { return sameSecond(a, b) ? 136 : 184; }
+function closeTogether(a, b) { return a.position - b.position <= .3 + 1e-10; }
+function nodeGap(a, b) { return closeTogether(a, b) ? 136 : 184; }
 
 function layout(steps, width, rowSeconds) {
   const start = Math.floor(steps[0].position / rowSeconds);
@@ -176,7 +170,7 @@ function drawNode(node, y, showTime) {
     else text(node.action === '切人' ? '⇄' : '闪', cx, cy + 11, '800 31px Arial, "PingFang SC"', '#f4f5ee', 'center');
   }
   const label = node.action === '其他' ? node.note : node.action;
-  text(label, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
+  text(label, x, y + 110, '800 30px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
   const keyX = x + ctx.measureText(label).width / 2 + 18, keyY = y + 102;
   if (node.action === '普攻' || node.action === '重击' || node.action === '闪避') {
     const mouse = node.action === '闪避' ? 'mouse-right' : 'mouse-left';
@@ -187,11 +181,11 @@ function drawNode(node, y, showTime) {
     text(String(node.slot), keyX, keyY + 8, '800 24px Arial', '#dce83d', 'center');
   } else {
     const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
-    if (key) text(key, keyX, keyY + 8, '800 24px Arial', '#dce83d', 'center');
+    if (key) text(key, keyX, keyY + 8, '800 30px Arial', '#dce83d', 'center');
   }
-  if (showTime) text(timeLabel(node.time), x, y + 138, '800 20px Arial', '#dce83d', 'center');
+  if (showTime) text(timeLabel(node.time), x, y + 142, '800 27px Arial', '#dce83d', 'center');
   const chars = [...(node.action === '其他' ? '' : node.note)];
-  for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 163 + i / 9 * 18, '600 15px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
+  for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 169 + i / 9 * 18, '600 20px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
 }
 
 function draw({ title, rowSeconds, steps }) {
@@ -221,15 +215,17 @@ function draw({ title, rowSeconds, steps }) {
       const routeX = row % 2 ? width - 38 : 38;
       line(previous.x + previous.direction * 68, previous.y, routeX, previous.y, '#dce83d', 3);
       line(routeX, previous.y, routeX, y, '#dce83d', 3);
-      arrow(routeX, y, lane.nodes[0].x - direction * 70, y);
+      if (closeTogether(previous, lane.nodes[0])) line(routeX, y, lane.nodes[0].x - direction * 70, y, '#dce83d', 3);
+      else arrow(routeX, y, lane.nodes[0].x - direction * 70, y);
     }
-    lane.nodes.forEach((node, i) => { if (i && !sameSecond(lane.nodes[i - 1], node)) arrow(lane.nodes[i - 1].x + direction * 69, y, node.x - direction * 70, y); });
+    lane.nodes.forEach((node, i) => { if (i && !closeTogether(lane.nodes[i - 1], node)) arrow(lane.nodes[i - 1].x + direction * 69, y, node.x - direction * 70, y); });
     lane.nodes.forEach(node => {
-      const showTime = node.time !== null && !shownTimes.has(node.time);
-      if (showTime) shownTimes.add(node.time);
+      const second = Math.floor(node.position);
+      const showTime = node.specifiedTime && !shownTimes.has(second);
+      if (showTime) shownTimes.add(second);
       drawNode(node, y, showTime);
     });
-    if (lane.nodes.length) previous = { x: lane.nodes.at(-1).x, y, direction };
+    if (lane.nodes.length) previous = { x: lane.nodes.at(-1).x, y, direction, position: lane.nodes.at(-1).position };
   });
   const foot = height - 65;
   line(75, foot - 26, width - 75, foot - 26, '#5b665e');
