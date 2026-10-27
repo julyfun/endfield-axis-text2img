@@ -28,13 +28,14 @@ function tick(now) {
 
 async function loadVideo() {
   try {
-    videoStatus.textContent = '正在加载本地素材…'; videoStatus.classList.remove('error');
+    videoStatus.textContent = '正在加载本地素材…'; videoStatus.classList.remove('error', 'warning');
     videoErrorDetails.hidden = true; videoErrorDetails.textContent = '';
     videoData = await prepareVideo(source.value, videoConfigSource.value);
     videoData.duration = (videoData.frameCount - 1) / videoData.fps;
     videoProgress.max = videoData.duration; videoTime = 0; showVideoFrame();
-    videoStatus.textContent = `已加载 ${videoData.actions} 个动作 / ${videoData.groups} 个触发组`;
-  } catch (error) { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; }
+    videoStatus.classList.toggle('warning', videoData.warnings?.length > 0);
+    videoStatus.textContent = `已加载 ${videoData.actions} 个动作 / ${videoData.groups} 个触发组${videoData.warnings?.length ? `；警告：${videoData.warnings.join('；')}` : ''}`;
+  } catch (error) { videoStatus.textContent = error.message; videoStatus.classList.remove('warning'); videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; }
 }
 
 function supportedVideoType() {

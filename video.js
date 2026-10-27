@@ -1,14 +1,15 @@
 let videoState;
 
 async function prepareVideo(source, configSource) {
-  [aliases] = await Promise.all([aliasesTask, operatorsTask]);
-  const config = TOML.parse(configSource.trim());
-  const width = config.width ?? 1920, height = config.height ?? 1080, fps = config.fps ?? 30;
-  const offset = config.sync_offset_seconds ?? 0;
+  [aliases] = await Promise.all([aliasesTask, operatorsTask, defaultsTask]);
+  const { steps, style, warnings } = parseDocument(source, configSource, 'video');
+  renderStyle = style;
+  const width = style.width, height = style.height, fps = style.fps;
+  const offset = style.sync_offset_seconds;
   if (!Number.isInteger(width) || width < 320 || width > 3840 || !Number.isInteger(height) || height < 240 || height > 2160) throw new Error('视频宽高需要在 320×240 到 3840×2160 之间');
   if (!Number.isInteger(fps) || fps < 1 || fps > 60) throw new Error('fps 需要 1–60 的整数');
   if (typeof offset !== 'number' || !Number.isFinite(offset) || offset < 0) throw new Error('sync_offset_seconds 需要非负数');
-  const { steps } = parseDocument(source, configSource);
+  if (![style.time_scale, style.node_spacing, style.min_group_gap, style.max_group_gap].every(value => Number.isFinite(value) && value >= 0) || style.max_group_gap < style.min_group_gap) throw new Error('视频间距参数无效：max_group_gap 不能小于 min_group_gap');
   await prepareAssets(steps);
   const seen = new Set(), triggers = [];
   steps.forEach((step, i) => {
@@ -22,13 +23,16 @@ async function prepareVideo(source, configSource) {
     if (group && closeTogether(group.steps.at(-1), step)) group.steps.push(step);
     else groups.push({ time: step.time, steps: [step] });
   });
-  const timeScale = 240, nodeSpacing = 136, groupGap = 184;
+  const timeScale = style.time_scale, nodeSpacing = style.node_spacing;
+  const minGroupGap = style.min_group_gap, maxGroupGap = style.max_group_gap;
   let previousWorld = 0, previousHalf = 0;
   groups.forEach((group, groupIndex) => {
     group.trigger = Number((offset + steps[0].time - group.time).toFixed(6));
     group.halfWidth = (group.steps.length - 1) * nodeSpacing / 2;
     const timeWorld = (steps[0].time - group.time) * timeScale;
-    group.world = groupIndex ? Math.max(timeWorld, previousWorld + previousHalf + group.halfWidth + groupGap) : timeWorld;
+    const timeGap = timeWorld - previousWorld;
+    const boundedGap = Math.min(maxGroupGap, Math.max(minGroupGap, timeGap));
+    group.world = groupIndex ? previousWorld + previousHalf + group.halfWidth + boundedGap : timeWorld;
     group.steps.forEach((step, i) => { step.groupIndex = groupIndex; step.world = group.world + (i - (group.steps.length - 1) / 2) * nodeSpacing; });
     previousWorld = group.world;
     previousHalf = group.halfWidth;
@@ -36,11 +40,16 @@ async function prepareVideo(source, configSource) {
   });
   canvas.width = width; canvas.height = height;
   videoState = { steps, groups, triggers, width, height, fps, timeScale, nodeSpacing };
-  return { width, height, fps, triggers, frameCount: Math.ceil((triggers.at(-1) + 1) * fps), groups: groups.length, actions: steps.length };
+  return { width, height, fps, triggers, frameCount: Math.ceil((triggers.at(-1) + 1) * fps), groups: groups.length, actions: steps.length, warnings };
 }
 
 function easeInOut(progress) {
   return progress < .5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+}
+
+function colorWithAlpha(color, alpha) {
+  const channels = color.match(/^#([0-9a-f]{6})$/i)?.[1].match(/../g);
+  return channels ? `rgba(${channels.map(value => parseInt(value, 16)).join(', ')}, ${alpha})` : color;
 }
 
 function drawVideoFrame(time) {
@@ -50,46 +59,46 @@ function drawVideoFrame(time) {
   let camera = active >= 0 ? groups[active].world : 0;
   let focus = active;
   if (active >= 0 && active + 1 < groups.length) {
-    const end = triggers[active + 1], start = Math.max(triggers[active], end - .42);
+    const end = triggers[active + 1], start = Math.max(triggers[active], end - renderStyle.transition_seconds);
     if (time >= start) {
       focus = active + 1;
       const progress = easeInOut(Math.min(1, (time - start) / (end - start)));
       camera = groups[active].world + (groups[active + 1].world - groups[active].world) * progress;
     }
   }
-  const scale = Math.min(width / 1920, height / 1080);
+  const scale = Math.min(width / renderStyle.reference_width, height / renderStyle.reference_height);
   const viewWidth = width / scale, viewHeight = height / scale;
-  const y = viewHeight - 240;
+  const y = viewHeight - renderStyle.axis_y_offset;
   ctx.clearRect(0, 0, width, height);
   ctx.save(); ctx.scale(scale, scale);
-  ctx.fillStyle = 'rgba(16, 21, 20, .66)';
+  ctx.fillStyle = renderStyle.background;
   ctx.fillRect(0, y - 96, viewWidth, viewHeight - y + 96);
-  ctx.save(); ctx.globalAlpha = .4;
+  ctx.save(); ctx.globalAlpha = renderStyle.connector_alpha;
   for (let i = 1; i < steps.length; i++) {
     const x1 = viewWidth / 2 + steps[i - 1].world - camera + 78;
     const x2 = viewWidth / 2 + steps[i].world - camera - 78;
     if (x2 < 0 || x1 > viewWidth) continue;
-    if (steps[i - 1].groupIndex === steps[i].groupIndex) line(x1, y, x2, y, '#dce83d', 3);
+    if (steps[i - 1].groupIndex === steps[i].groupIndex) line(x1, y, x2, y, renderStyle.connector_color, 3);
     else arrow(x1, y, x2, y);
   }
   ctx.restore();
   steps.forEach((step, i) => {
     const x = viewWidth / 2 + step.world - camera;
     if (x < -100 || x > viewWidth + 100) return;
-    ctx.save(); ctx.globalAlpha = step.groupIndex === focus ? 1 : .38;
-    drawNode({ ...step, x }, y, step.showTime, -1, false);
+    ctx.save(); ctx.globalAlpha = step.groupIndex === focus ? 1 : renderStyle.inactive_alpha;
+    drawNode({ ...step, x }, y, step.showTime, 1, false);
     ctx.restore();
   });
   if (active >= 0) {
-    const elapsed = time - triggers[active], pulseDuration = .48;
+    const elapsed = time - triggers[active], pulseDuration = renderStyle.pulse_duration;
     if (elapsed >= 0 && elapsed < pulseDuration) {
       const progress = elapsed / pulseDuration;
       groups[active].steps.forEach(step => {
         const x = viewWidth / 2 + step.world - camera;
         if (x < -100 || x > viewWidth + 100) return;
-        ctx.strokeStyle = `rgba(255, 255, 255, ${1 - progress})`;
-        ctx.lineWidth = 5 - progress * 3;
-        ctx.beginPath(); ctx.arc(x, y, 67 + progress * 70, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = colorWithAlpha(renderStyle.pulse_color, 1 - progress);
+        ctx.lineWidth = renderStyle.pulse_start_width + progress * (renderStyle.pulse_end_width - renderStyle.pulse_start_width);
+        ctx.beginPath(); ctx.arc(x, y, renderStyle.pulse_start_radius + progress * (renderStyle.pulse_end_radius - renderStyle.pulse_start_radius), 0, Math.PI * 2); ctx.stroke();
       });
     }
   }
