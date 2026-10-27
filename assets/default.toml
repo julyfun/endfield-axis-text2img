@@ -1,8 +1,8 @@
 [common]
 operators = ["提弗洛斯", "祀", "诀", "赛希"]
 close_node_gap = 136
-separate_node_gap = 184
-max_axis_gap = 720
+min_group_gap = 184
+max_group_gap = 720
 group_threshold = 0.3
 
 node_fill = "#1e2422"
@@ -54,8 +54,6 @@ fps = 30
 sync_offset_seconds = 0
 time_scale = 240
 node_spacing = 136
-min_group_gap = 184
-max_group_gap = 720
 transition_seconds = 0.3
 pulse_duration = 0.3
 inactive_alpha = 0.38

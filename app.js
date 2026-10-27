@@ -71,8 +71,8 @@ function parseDocument(source, configSource, mode = 'poster') {
   const title = config.title || '战斗技能时间轴';
   const timeline = config.timeline ?? '';
   if (mode === 'poster' && (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60)) throw new Error('row_seconds 需要 1–60 的整数');
-  if (![config.group_threshold, config.close_node_gap, config.separate_node_gap, config.max_axis_gap].every(value => Number.isFinite(value) && value >= 0)) throw new Error('默认间距参数需要是非负数字');
-  if (config.max_axis_gap < config.separate_node_gap) throw new Error('max_axis_gap 不能小于 separate_node_gap');
+  if (![config.group_threshold, config.close_node_gap, config.min_group_gap, config.max_group_gap].every(value => Number.isFinite(value) && value >= 0)) throw new Error('默认间距参数需要是非负数字');
+  if (config.max_group_gap < config.min_group_gap) throw new Error('max_group_gap 不能小于 min_group_gap');
   if (mode === 'poster' && (typeof title !== 'string' || [...title].length > 14)) throw new Error('title 最多 14 个字');
   if (mode === 'poster' && (typeof timeline !== 'string' || [...timeline].length > 40)) throw new Error('timeline 需要不超过 40 个字的字符串');
   if (rawConfig.aliases) throw new Error('干员别名请写在 assets/aliases.toml');
@@ -154,7 +154,7 @@ function timeLabel(seconds) {
 }
 
 function closeTogether(a, b) { return a.position - b.position <= renderStyle.group_threshold + 1e-10; }
-function nodeGap(a, b) { return closeTogether(a, b) ? renderStyle.close_node_gap : renderStyle.separate_node_gap; }
+function nodeGap(a, b) { return closeTogether(a, b) ? renderStyle.close_node_gap : renderStyle.min_group_gap; }
 
 function layout(steps, width, rowSeconds) {
   const start = Math.floor(steps[0].position / rowSeconds);
@@ -168,7 +168,7 @@ function layout(steps, width, rowSeconds) {
       const target = left + ((low + rowSeconds - node.position) / rowSeconds) * (right - left);
       if (i) {
         const gap = nodeGap(lane.nodes[i - 1], node);
-        node.u = Math.max(Math.min(target, lane.nodes[i - 1].u + renderStyle.max_axis_gap), lane.nodes[i - 1].u + gap);
+        node.u = Math.max(Math.min(target, lane.nodes[i - 1].u + renderStyle.max_group_gap), lane.nodes[i - 1].u + gap);
       } else node.u = Math.max(left, target);
     });
     if (lane.nodes.length) {
