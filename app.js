@@ -7,12 +7,13 @@ const download = document.querySelector('#download');
 const ctx = canvas.getContext('2d');
 const base = 'assets/operators/';
 const operators = {
-  '赛希': { file: 'saixi', attack: 'attack-funnel', elements: { '普攻': ['寒冷'], '重击': ['寒冷'], '连携': ['寒冷'], '大招': ['寒冷', '自然'] } },
-  '祀': { file: 'si', attack: 'attack-claymore', elements: { '普攻': ['寒冷'], '重击': ['寒冷'], '战技': ['寒冷'], '战技II': ['寒冷'], '战技III': ['寒冷'], '连携': ['寒冷'], '大招': ['寒冷', '灼热'] } },
-  '诀': { file: 'jue', attack: 'attack-funnel', elements: { '普攻': ['自然'], '重击': ['自然'], '战技': ['自然'], '连携': ['自然'], '大招': ['自然'] } },
-  '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel', elements: { '普攻': ['自然'], '重击': ['自然'], '战技': ['自然'], '连携': ['自然'], '大招': ['自然'] } }
+  '赛希': { file: 'saixi', attack: 'attack-funnel', elements: { '普攻': '寒冷', '重击': '寒冷', '战技': '寒冷', '连携': '寒冷', '大招': '寒冷' } },
+  '祀': { file: 'si', attack: 'attack-claymore', elements: { '普攻': '寒冷', '重击': '寒冷', '战技': '寒冷', '战技II': '寒冷', '战技III': '寒冷', '连携': '寒冷', '大招': '寒冷' } },
+  '诀': { file: 'jue', attack: 'attack-funnel', elements: { '普攻': '自然', '重击': '自然', '战技': '自然', '连携': '自然', '大招': '自然' } },
+  '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel', elements: { '普攻': '自然', '重击': '自然', '战技': '自然', '连携': '自然', '大招': '自然' } }
 };
-const aliases = { '提丰': '提弗洛斯' };
+const defaultParty = ['提弗洛斯', '祀', '诀', '赛希'];
+const defaultAliases = { '提丰': '提弗洛斯', '小葱': '祀' };
 const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '切人', '其他', '闪避']);
 const imageTasks = new Map(), images = new Map();
 const colorsTask = fetch('assets/elements.toml').then(response => {
@@ -27,14 +28,21 @@ function parseDocument(source, configSource) {
   const title = config.title || '战斗技能时间轴';
   if (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60) throw new Error('row_seconds 需要 1–60 的整数');
   if (typeof title !== 'string' || [...title].length > 14) throw new Error('title 最多 14 个字');
+  const aliases = { ...defaultAliases, ...config.aliases };
+  const resolve = name => aliases[name] || name;
+  const party = config.operators ?? defaultParty;
+  if (!Array.isArray(party)) throw new Error('operators 需要四名干员的数组');
+  const slots = party.map(resolve);
+  if (slots.length !== 4 || new Set(slots).size !== 4 || slots.some(name => !operators[name])) throw new Error('operators 需要四名不重复的已知干员');
   const parsed = Papa.parse(source, { header: true, skipEmptyLines: 'greedy', transformHeader: value => value.trim() });
   if (parsed.errors.length) throw new Error(`CSV 第 ${parsed.errors[0].row + 2} 行：${parsed.errors[0].message}`);
   if (!['operator', 'action', 'time', 'note'].every(name => parsed.meta.fields?.includes(name))) throw new Error('CSV 表头需要 operator,action,time,note');
   let previous = Infinity;
   const steps = parsed.data.map((record, index) => {
-    const operator = aliases[record.operator?.trim()] || record.operator?.trim();
+    const operator = resolve(record.operator?.trim());
     const action = record.action?.trim(), rawTime = record.time?.trim(), note = record.note?.trim() || '';
     if (!operators[operator]) throw new Error(`第 ${index + 2} 行：未知干员 ${operator || '（空）'}`);
+    if (!slots.includes(operator)) throw new Error(`第 ${index + 2} 行：${operator} 不在 operators 中`);
     if (!actions.has(action)) throw new Error(`第 ${index + 2} 行：未知动作 ${action || '（空）'}`);
     if (action === '其他' && (!note || [...note].length > 7)) throw new Error(`第 ${index + 2} 行：其他动作的备注需要 1–7 个字`);
     if ([...note].length > 36) throw new Error(`第 ${index + 2} 行：备注最多 36 个字`);
@@ -46,7 +54,7 @@ function parseDocument(source, configSource) {
       if (time > previous) throw new Error(`第 ${index + 2} 行：时间不能上升`);
       previous = time;
     }
-    return { operator, action, time, note, elements: operators[operator].elements[action] || [] };
+    return { operator, action, time, note, slot: slots.indexOf(operator) + 1, element: operators[operator].elements[action] || null };
   });
   if (!steps.length || steps.every(step => step.time === null)) throw new Error('至少需要一条动作和一个时间');
   const known = steps.map((step, i) => step.time === null ? -1 : i).filter(i => i >= 0);
@@ -63,6 +71,8 @@ function parseDocument(source, configSource) {
 function assetName(step) {
   const op = operators[step.operator];
   if (step.action === '普攻' || step.action === '重击') return op.attack;
+  if (step.operator === '祀' && step.action === '战技II') return 'si-skill-ii';
+  if (step.operator === '祀' && step.action === '战技III') return 'si-skill-iii';
   const type = { '战技': 'skill', '战技II': 'skill', '战技III': 'skill', '连携': 'combo', '大招': 'ultimate' }[step.action];
   return type ? `${op.file}-${type}` : null;
 }
@@ -72,7 +82,7 @@ function loadImage(name) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error(`无法加载图片：${name}`));
-    image.src = `${base}${name}.png`;
+    image.src = name.startsWith('mouse-') ? `assets/keys/${name}.svg` : `${base}${name}.png`;
   }));
   return imageTasks.get(name);
 }
@@ -101,7 +111,7 @@ function timeLabel(seconds) {
 }
 
 function sameSecond(a, b) { return a.time !== null && a.time === b.time; }
-function nodeGap(a, b) { return sameSecond(a, b) ? 144 : 184; }
+function nodeGap(a, b) { return sameSecond(a, b) ? 136 : 184; }
 
 function layout(steps, width, rowSeconds) {
   const start = Math.floor(steps[0].position / rowSeconds);
@@ -139,7 +149,7 @@ function circleImage(image, x, y, radius, portrait = false) {
   ctx.restore();
 }
 
-function drawNode(node, y) {
+function drawNode(node, y, direction, showTime) {
   const x = node.x, portrait = images.get(`${operators[node.operator].file}-portrait`);
   const accent = node.action === '大招' ? '#dce83d' : '#f4f5ee';
   const badge = assetName(node), cx = x + 43, cy = y + 44;
@@ -150,12 +160,10 @@ function drawNode(node, y) {
   if (badge || node.action === '切人' || node.action === '闪避') {
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.clip();
     ctx.fillStyle = '#171b19'; ctx.fillRect(cx - 31, cy - 31, 62, 62);
-    node.elements.forEach((element, index) => {
-      const start = (30 + (node.elements.length === 1 ? 0 : index * 60)) * Math.PI / 180;
-      const end = (node.elements.length === 1 ? 150 : 90 + index * 60) * Math.PI / 180;
-      ctx.fillStyle = colors[element]; ctx.beginPath(); ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, 31, start, end); ctx.closePath(); ctx.fill();
-    });
+    if (node.element && badge) {
+      ctx.fillStyle = colors[node.element]; ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, 31, Math.PI / 6, Math.PI * 5 / 6); ctx.closePath(); ctx.fill();
+    }
     ctx.restore();
     ctx.strokeStyle = '#f4f5ee'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.stroke();
@@ -168,7 +176,23 @@ function drawNode(node, y) {
     else text(node.action === '切人' ? '⇄' : '闪', cx, cy + 11, '800 31px Arial, "PingFang SC"', '#f4f5ee', 'center');
   }
   text(node.action === '其他' ? node.note : node.action, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
-  if (node.time !== null) text(timeLabel(node.time), x, y + 138, '800 20px Arial', '#dce83d', 'center');
+  if (showTime) {
+    const tx = x - direction * 70;
+    ctx.fillStyle = '#151919'; ctx.fillRect(tx - (direction < 0 ? 1 : 46), y - 76, 47, 23);
+    text(timeLabel(node.time), tx, y - 58, '800 15px Arial', '#dce83d', direction > 0 ? 'right' : 'left');
+  }
+  const keyY = y + 138;
+  if (node.action === '普攻' || node.action === '重击' || node.action === '闪避') {
+    const mouse = node.action === '闪避' ? 'mouse-right' : 'mouse-left';
+    ctx.drawImage(images.get(mouse), x - 16, keyY - 25, 32, 32);
+  } else if (node.action === '大招') {
+    ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, keyY - 7, 16, 0, Math.PI * 2); ctx.stroke();
+    text(String(node.slot), x, keyY, '800 20px Arial', '#dce83d', 'center');
+  } else {
+    const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
+    if (key) text(key, x, keyY, '800 20px Arial', '#dce83d', 'center');
+  }
   const chars = [...(node.action === '其他' ? '' : node.note)];
   for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 163 + i / 9 * 18, '600 15px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
 }
@@ -191,6 +215,7 @@ function draw({ title, rowSeconds, steps }) {
   text(`${String(steps.length).padStart(2, '0')} ACTIONS`, 75, 288, '800 23px Arial');
   text(`${timeLabel(steps[0].position)}  →  ${timeLabel(steps.at(-1).position)}`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
   let previous = null;
+  const shownTimes = new Set();
   lanes.forEach((lane, row) => {
     const top = 320 + row * 340, y = top + 86;
     const direction = row % 2 ? -1 : 1;
@@ -202,7 +227,11 @@ function draw({ title, rowSeconds, steps }) {
       arrow(routeX, y, lane.nodes[0].x - direction * 70, y);
     }
     lane.nodes.forEach((node, i) => { if (i && !sameSecond(lane.nodes[i - 1], node)) arrow(lane.nodes[i - 1].x + direction * 69, y, node.x - direction * 70, y); });
-    lane.nodes.forEach(node => drawNode(node, y));
+    lane.nodes.forEach(node => {
+      const showTime = node.time !== null && !shownTimes.has(node.time);
+      if (showTime) shownTimes.add(node.time);
+      drawNode(node, y, direction, showTime);
+    });
     if (lane.nodes.length) previous = { x: lane.nodes.at(-1).x, y, direction };
   });
   const foot = height - 65;
@@ -219,6 +248,8 @@ async function render() {
     const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
     const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, assetName(step)].filter(Boolean)));
+    if (steps.some(step => ['普攻', '重击'].includes(step.action))) names.add('mouse-left');
+    if (steps.some(step => step.action === '闪避')) names.add('mouse-right');
     colors = await colorsTask;
     await Promise.all([...names].map(async name => images.set(name, await loadImage(name))));
     draw(data);
