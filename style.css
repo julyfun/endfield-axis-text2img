@@ -9,7 +9,7 @@ button { cursor: pointer; }
 .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; background: #dce83d; color: #141714; font-weight: 900; letter-spacing: -4px; padding-right: 4px; transform: skew(-9deg); }
 .version, .index, .field-label, .editor-foot, .preview-meta { font-family: "Arial", sans-serif; letter-spacing: 1.4px; font-size: 11px; font-weight: 700; }
 .version { color: #8d9590; }
-.workspace { display: grid; grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); min-height: calc(100vh - 70px); }
+.workspace, .video-workspace { display: grid; grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); min-height: calc(100vh - 70px); }
 .editor { display: flex; flex-direction: column; padding: 38px 32px 24px 40px; border-right: 1px solid #3c4240; background: #1c2020; min-height: 0; }
 .index { color: #dce83d; }
 h1, h2, p { margin: 0; }
@@ -17,6 +17,9 @@ h1 { margin-top: 10px; font-size: 35px; line-height: 1.1; font-weight: 900; }
 h2 { margin-top: 7px; font-size: 21px; line-height: 1.1; }
 .field-label { display: flex; justify-content: space-between; gap: 10px; color: #eef0e8; margin-top: 36px; margin-bottom: 12px; }
 .field-label span { color: #929c96; letter-spacing: 0; }
+.field-label .field-name { color: #eef0e8; }
+.field-label .field-name span { color: #929c96; }
+.field-label .file-name { max-width: 58%; overflow: hidden; color: #dce83d; text-overflow: ellipsis; white-space: nowrap; }
 textarea { width: 100%; flex: 1; min-height: 390px; resize: vertical; padding: 18px; background: #101313; border: 1px solid #49504d; border-radius: 0; outline: none; color: #e9ece6; line-height: 1.65; font-size: 13px; white-space: pre; tab-size: 4; }
 textarea:focus { border-color: #dce83d; }
 .config-label { margin-top: 18px; }
@@ -37,5 +40,5 @@ textarea:focus { border-color: #dce83d; }
 .canvas-wrap { max-width: 620px; margin: 0 auto; box-shadow: 0 24px 60px #0006; line-height: 0; }
 canvas { width: 100%; height: auto; display: block; background: #151818; }
 .preview-meta { max-width: 620px; display: flex; justify-content: space-between; gap: 10px; margin: 14px auto 0; color: #a0a8a2; font-size: 10px; }
-@media (max-width: 850px) { .workspace { grid-template-columns: 1fr; } .editor { border-right: 0; border-bottom: 1px solid #3c4240; padding: 28px 22px 20px; } textarea:not(.config-source) { min-height: 300px; max-height: 430px; } .preview { padding: 25px 18px; } .masthead { padding: 0 22px; } }
+@media (max-width: 850px) { .workspace, .video-workspace { grid-template-columns: 1fr; } .editor { border-right: 0; border-bottom: 1px solid #3c4240; padding: 28px 22px 20px; } textarea:not(.config-source) { min-height: 300px; max-height: 430px; } .preview { padding: 25px 18px; } .masthead { padding: 0 22px; } }
 @media (max-width: 480px) { .version { display: none; } .preview-toolbar { align-items: flex-end; } .button-download { padding: 0 11px; } .editor-foot, .editor-actions { flex-wrap: wrap; } }

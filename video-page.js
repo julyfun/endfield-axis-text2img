@@ -1,13 +1,5 @@
-const videoFile = document.querySelector('#video-file');
-const videoConfigFile = document.querySelector('#video-config-file');
 const source = document.querySelector('#source');
 const videoConfigSource = document.querySelector('#poster-config');
-const csvName = document.querySelector('#csv-name');
-const tomlName = document.querySelector('#toml-name');
-const csvSave = document.querySelector('#csv-save');
-const csvSaveAs = document.querySelector('#csv-save-as');
-const tomlSave = document.querySelector('#toml-save');
-const tomlSaveAs = document.querySelector('#toml-save-as');
 const videoPlay = document.querySelector('#video-play');
 const videoReset = document.querySelector('#video-reset');
 const videoProgress = document.querySelector('#video-progress');
@@ -16,15 +8,6 @@ const videoStatus = document.querySelector('#video-status');
 const videoErrorDetails = document.querySelector('#error-details');
 const videoExport = document.querySelector('#video-export');
 let videoData = null, videoTime = 0, videoPlaying = false, videoFrame;
-let importedCsvName = '', importedTomlName = '';
-
-function saveText(text, filename, type) {
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([text], { type }));
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-}
 
 function showVideoFrame() {
   if (!videoData) return;
@@ -108,20 +91,7 @@ videoPlay.addEventListener('click', () => {
 videoReset.addEventListener('click', () => { videoPlaying = false; videoPlay.textContent = '播放'; tick.last = 0; videoTime = 0; showVideoFrame(); });
 videoProgress.addEventListener('input', () => { videoPlaying = false; videoPlay.textContent = '播放'; videoTime = Number(videoProgress.value); showVideoFrame(); });
 videoExport.addEventListener('click', () => exportVideo().catch(error => { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; videoExport.disabled = false; }));
-csvSave.addEventListener('click', () => saveText(source.value, importedCsvName, 'text/csv;charset=utf-8'));
-csvSaveAs.addEventListener('click', () => saveText(source.value, 'endfield-axis.csv', 'text/csv;charset=utf-8'));
-tomlSave.addEventListener('click', () => saveText(videoConfigSource.value, importedTomlName, 'text/plain;charset=utf-8'));
-tomlSaveAs.addEventListener('click', () => saveText(videoConfigSource.value, 'endfield-axis.toml', 'text/plain;charset=utf-8'));
-videoFile.addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (file) { source.value = await file.text(); importedCsvName = file.name; csvName.textContent = file.name; csvSave.disabled = false; await loadVideo(); }
-  event.target.value = '';
-});
-videoConfigFile.addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (file) { videoConfigSource.value = await file.text(); importedTomlName = file.name; tomlName.textContent = file.name; tomlSave.disabled = false; await loadVideo(); }
-  event.target.value = '';
-});
+document.addEventListener('editor-file-loaded', () => loadVideo());
 
 Promise.all(['examples/rotation.csv', 'examples/video.toml'].map(url => fetch(url).then(response => response.text())))
   .then(([csv, config]) => { source.value = csv; videoConfigSource.value = config; return loadVideo(); })

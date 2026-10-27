@@ -6,6 +6,7 @@
   <title>终末地战斗轴 · 动态预览</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="video.css">
+  <script src="editor-panel.js" defer></script>
   <script src="vendor/papaparse.min.js" defer></script>
   <script src="vendor/toml.min.js" defer></script>
   <script src="app.js?video" defer></script>
@@ -18,26 +19,7 @@
     <span class="version">DYNAMIC TIMELINE / VIDEO PREVIEW</span>
   </header>
   <main class="video-workspace">
-    <section class="video-editor">
-      <div class="section-heading"><span class="index">01 / INPUT</span></div>
-      <p class="field-label"><span class="field-name">CSV <span>operator · action · time · note</span></span><span class="file-name" id="csv-name"></span></p>
-      <textarea id="source" spellcheck="false" aria-label="技能顺序 CSV"></textarea>
-      <div class="video-actions">
-        <label class="button button-secondary" for="video-file">导入 CSV</label>
-        <input id="video-file" type="file" accept=".csv,text/csv,text/plain" hidden>
-        <button class="button button-secondary" id="csv-save" type="button" disabled>保存</button>
-        <button class="button button-secondary" id="csv-save-as" type="button">另存为</button>
-      </div>
-      <p class="field-label config-label"><span class="field-name">TOML <span>视频参数</span></span><span class="file-name" id="toml-name"></span></p>
-      <textarea id="poster-config" class="config-source" spellcheck="false" aria-label="视频 TOML"></textarea>
-      <div class="video-actions">
-        <label class="button button-secondary" for="video-config-file">导入 TOML</label>
-        <input id="video-config-file" type="file" accept=".toml,text/plain" hidden>
-        <button class="button button-secondary" id="toml-save" type="button" disabled>保存</button>
-        <button class="button button-secondary" id="toml-save-as" type="button">另存为</button>
-      </div>
-      <p class="status" id="status" role="status"></p>
-    </section>
+    <section class="editor" data-editor-panel data-editor-mode="video" aria-label="技能顺序编辑器"></section>
     <section class="video-preview">
       <div class="preview-toolbar">
         <div><span class="index">02 / PREVIEW</span><h2>运行时间轴</h2></div>
@@ -54,9 +36,7 @@
         <span class="export-hint">浏览器导出 WebM / Alpha</span>
       </div>
       <p class="status" id="video-status" role="status"></p>
-      <pre class="error-details" id="error-details" hidden></pre>
     </section>
   </main>
-  <button id="render" hidden type="button"></button><button id="download" hidden type="button"></button>
 </body>
 </html>

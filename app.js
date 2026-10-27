@@ -6,6 +6,7 @@ const dimensions = document.querySelector('#dimensions');
 const download = document.querySelector('#download');
 const errorDetails = document.querySelector('#error-details');
 const ctx = canvas.getContext('2d');
+const isVideoPage = location.pathname.endsWith('/video.html') || new URLSearchParams(location.search).has('video');
 const base = 'assets/operators/';
 let operators = {}, defaultParty = [];
 const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '处决', '切人', '其他', '闪避']);
@@ -291,16 +292,7 @@ async function render() {
 }
 
 document.querySelector('#render')?.addEventListener('click', render);
-document.querySelector('#file')?.addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (file) { input.value = await file.text(); render(); }
-  event.target.value = '';
-});
-document.querySelector('#config-file')?.addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (file) { posterConfig.value = await file.text(); render(); }
-  event.target.value = '';
-});
+if (!isVideoPage) document.addEventListener('editor-file-loaded', render);
 download?.addEventListener('click', () => {
   canvas.toBlob(blob => {
     if (!blob) return;
@@ -311,7 +303,7 @@ download?.addEventListener('click', () => {
   }, 'image/png');
 });
 if (location.protocol === 'file:') status.textContent = '请通过本地服务打开页面';
-else if (!location.pathname.endsWith('/video.html') && !new URLSearchParams(location.search).has('video')) Promise.all(['examples/rotation.csv', 'examples/poster.toml'].map(async url => {
+else if (!isVideoPage) Promise.all(['examples/rotation.csv', 'examples/poster.toml'].map(async url => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`无法加载示例：${url}`);
   return response.text();
