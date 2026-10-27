@@ -19,8 +19,10 @@ h2 { margin-top: 7px; font-size: 21px; line-height: 1.1; }
 .field-label span { color: #929c96; letter-spacing: 0; }
 textarea { width: 100%; flex: 1; min-height: 390px; resize: vertical; padding: 18px; background: #101313; border: 1px solid #49504d; border-radius: 0; outline: none; color: #e9ece6; line-height: 1.65; font-size: 13px; white-space: pre; tab-size: 4; }
 textarea:focus { border-color: #dce83d; }
+.config-label { margin-top: 18px; }
+.config-source { flex: 0 0 108px; min-height: 108px; }
 .editor-actions { display: flex; gap: 10px; margin-top: 16px; }
-.button { min-height: 43px; padding: 0 17px; display: inline-flex; align-items: center; justify-content: center; gap: 14px; border: 1px solid transparent; font-size: 13px; font-weight: 800; white-space: nowrap; transition: background .15s, color .15s; }
+.button { min-height: 43px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid transparent; font-size: 13px; font-weight: 800; white-space: nowrap; transition: background .15s, color .15s; }
 .button-secondary { border-color: #65706a; color: #e6eae3; background: transparent; cursor: pointer; }
 .button-secondary:hover { background: #303735; }
 .button-primary, .button-download { background: #dce83d; color: #151915; }
@@ -33,5 +35,5 @@ textarea:focus { border-color: #dce83d; }
 .canvas-wrap { max-width: 620px; margin: 0 auto; box-shadow: 0 24px 60px #0006; line-height: 0; }
 canvas { width: 100%; height: auto; display: block; background: #151818; }
 .preview-meta { max-width: 620px; display: flex; justify-content: space-between; gap: 10px; margin: 14px auto 0; color: #a0a8a2; font-size: 10px; }
-@media (max-width: 850px) { .workspace { grid-template-columns: 1fr; } .editor { border-right: 0; border-bottom: 1px solid #3c4240; padding: 28px 22px 20px; } textarea { min-height: 300px; max-height: 430px; } .preview { padding: 25px 18px; } .masthead { padding: 0 22px; } }
-@media (max-width: 480px) { .version { display: none; } .preview-toolbar { align-items: flex-end; } .button-download { padding: 0 11px; } .editor-foot { flex-wrap: wrap; } }
+@media (max-width: 850px) { .workspace { grid-template-columns: 1fr; } .editor { border-right: 0; border-bottom: 1px solid #3c4240; padding: 28px 22px 20px; } textarea:not(.config-source) { min-height: 300px; max-height: 430px; } .preview { padding: 25px 18px; } .masthead { padding: 0 22px; } }
+@media (max-width: 480px) { .version { display: none; } .preview-toolbar { align-items: flex-end; } .button-download { padding: 0 11px; } .editor-foot, .editor-actions { flex-wrap: wrap; } }

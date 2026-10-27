@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>终末地战斗轴 · 一图流</title>
   <link rel="stylesheet" href="style.css">
-  <script src="vendor/js-yaml.min.js" defer></script>
+  <script src="vendor/papaparse.min.js" defer></script>
+  <script src="vendor/toml.min.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -15,13 +16,17 @@
   </header>
 
   <main class="workspace">
-    <section class="editor" aria-label="YAML 编辑器">
+    <section class="editor" aria-label="技能顺序编辑器">
       <div class="section-heading"><span class="index">01 / INPUT</span><h1>技能顺序</h1></div>
-      <p class="field-label">YAML <span>干员 · 动作 · 标签 · 时间 · 属性 · 备注</span></p>
-      <textarea id="source" spellcheck="false" aria-label="技能顺序 YAML"></textarea>
+      <p class="field-label">CSV <span>operator · action · time · note</span></p>
+      <textarea id="source" spellcheck="false" aria-label="技能顺序 CSV"></textarea>
+      <p class="field-label config-label">TOML <span>海报参数</span></p>
+      <textarea id="poster-config" class="config-source" spellcheck="false" aria-label="海报 TOML"></textarea>
       <div class="editor-actions">
-        <label class="button button-secondary" for="file">导入 YAML</label>
-        <input id="file" type="file" accept=".yaml,.yml,text/yaml,text/plain" hidden>
+        <label class="button button-secondary" for="file">导入 CSV</label>
+        <input id="file" type="file" accept=".csv,text/csv,text/plain" hidden>
+        <label class="button button-secondary" for="config-file">导入 TOML</label>
+        <input id="config-file" type="file" accept=".toml,text/plain" hidden>
         <button class="button button-primary" id="render" type="button">生成预览 <span aria-hidden="true">↗</span></button>
       </div>
       <p class="status" id="status" role="status"></p>

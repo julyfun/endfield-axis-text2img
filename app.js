@@ -1,4 +1,5 @@
 const input = document.querySelector('#source');
+const posterConfig = document.querySelector('#poster-config');
 const canvas = document.querySelector('#poster');
 const status = document.querySelector('#status');
 const dimensions = document.querySelector('#dimensions');
@@ -6,46 +7,46 @@ const download = document.querySelector('#download');
 const ctx = canvas.getContext('2d');
 const base = 'assets/operators/';
 const operators = {
-  '赛希': { file: 'saixi', attack: 'attack-funnel' },
-  '祀': { file: 'si', attack: 'attack-claymore' },
-  '诀': { file: 'jue', attack: 'attack-funnel' },
-  '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel' }
+  '赛希': { file: 'saixi', attack: 'attack-funnel', elements: { '普攻': ['寒冷'], '重击': ['寒冷'], '连携': ['寒冷'], '大招': ['寒冷', '自然'] } },
+  '祀': { file: 'si', attack: 'attack-claymore', elements: { '普攻': ['寒冷'], '重击': ['寒冷'], '战技': ['寒冷'], '战技II': ['寒冷'], '战技III': ['寒冷'], '连携': ['寒冷'], '大招': ['寒冷', '灼热'] } },
+  '诀': { file: 'jue', attack: 'attack-funnel', elements: { '普攻': ['自然'], '重击': ['自然'], '战技': ['自然'], '连携': ['自然'], '大招': ['自然'] } },
+  '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel', elements: { '普攻': ['自然'], '重击': ['自然'], '战技': ['自然'], '连携': ['自然'], '大招': ['自然'] } }
 };
-const actions = new Set(['attack', 'skill', 'combo', 'ultimate', 'switch']);
-const elements = new Set(['物理', '寒冷', '灼热', '自然', '电磁', '无']);
+const aliases = { '提丰': '提弗洛斯' };
+const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '切人', '其他', '闪避']);
 const imageTasks = new Map(), images = new Map();
-const colorsTask = fetch('assets/elements.yaml').then(response => {
+const colorsTask = fetch('assets/elements.toml').then(response => {
   if (!response.ok) throw new Error('无法加载属性配色');
   return response.text();
-}).then(text => jsyaml.load(text));
+}).then(text => TOML.parse(text));
 let colors = {};
 
-function parseDocument(source) {
-  const document = jsyaml.load(source);
-  if (!document || !Array.isArray(document.steps)) throw new Error('YAML 需要 steps 列表');
-  const rowSeconds = document.row_seconds ?? 10;
-  const title = document.title || '战斗技能时间轴';
+function parseDocument(source, configSource) {
+  const config = TOML.parse(configSource.trim());
+  const rowSeconds = config.row_seconds ?? 10;
+  const title = config.title || '战斗技能时间轴';
   if (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60) throw new Error('row_seconds 需要 1–60 的整数');
   if (typeof title !== 'string' || [...title].length > 14) throw new Error('title 最多 14 个字');
+  const parsed = Papa.parse(source, { header: true, skipEmptyLines: 'greedy', transformHeader: value => value.trim() });
+  if (parsed.errors.length) throw new Error(`CSV 第 ${parsed.errors[0].row + 2} 行：${parsed.errors[0].message}`);
+  if (!['operator', 'action', 'time', 'note'].every(name => parsed.meta.fields?.includes(name))) throw new Error('CSV 表头需要 operator,action,time,note');
   let previous = Infinity;
-  const steps = document.steps.map((record, index) => {
-    if (!Array.isArray(record) || record.length < 5 || record.length > 6) throw new Error(`第 ${index + 1} 个节点需要 5–6 列`);
-    const [operator, action, label, rawTime, element, note = ''] = record;
-    if (!operators[operator]) throw new Error(`第 ${index + 1} 个节点：未知干员 ${operator || '（空）'}`);
-    if (!actions.has(action)) throw new Error(`第 ${index + 1} 个节点：未知动作 ${action || '（空）'}`);
-    if (typeof label !== 'string' || !label || [...label].length > 7) throw new Error(`第 ${index + 1} 个节点：标签需要 1–7 个字`);
-    if (!elements.has(element)) throw new Error(`第 ${index + 1} 个节点：未知属性 ${element || '（空）'}`);
-    if (typeof note !== 'string' || [...note].length > 36) throw new Error(`第 ${index + 1} 个节点：备注最多 36 个字`);
+  const steps = parsed.data.map((record, index) => {
+    const operator = aliases[record.operator?.trim()] || record.operator?.trim();
+    const action = record.action?.trim(), rawTime = record.time?.trim(), note = record.note?.trim() || '';
+    if (!operators[operator]) throw new Error(`第 ${index + 2} 行：未知干员 ${operator || '（空）'}`);
+    if (!actions.has(action)) throw new Error(`第 ${index + 2} 行：未知动作 ${action || '（空）'}`);
+    if (action === '其他' && (!note || [...note].length > 7)) throw new Error(`第 ${index + 2} 行：其他动作的备注需要 1–7 个字`);
+    if ([...note].length > 36) throw new Error(`第 ${index + 2} 行：备注最多 36 个字`);
     let time = null;
-    if (rawTime !== null && rawTime !== undefined && rawTime !== '') {
-      if (typeof rawTime !== 'string') throw new Error(`第 ${index + 1} 个节点：时间需加引号`);
+    if (rawTime) {
       const match = /^(\d+):([0-5]\d)$/.exec(rawTime);
-      if (!match) throw new Error(`第 ${index + 1} 个节点：时间格式应为 6:57`);
+      if (!match) throw new Error(`第 ${index + 2} 行：时间格式应为 6:57`);
       time = Number(match[1]) * 60 + Number(match[2]);
-      if (time > previous) throw new Error(`第 ${index + 1} 个节点：时间不能上升`);
+      if (time > previous) throw new Error(`第 ${index + 2} 行：时间不能上升`);
       previous = time;
     }
-    return { operator, action, label, time, element, note };
+    return { operator, action, time, note, elements: operators[operator].elements[action] || [] };
   });
   if (!steps.length || steps.every(step => step.time === null)) throw new Error('至少需要一条动作和一个时间');
   const known = steps.map((step, i) => step.time === null ? -1 : i).filter(i => i >= 0);
@@ -61,7 +62,9 @@ function parseDocument(source) {
 
 function assetName(step) {
   const op = operators[step.operator];
-  return step.action === 'attack' ? op.attack : `${op.file}-${step.action}`;
+  if (step.action === '普攻' || step.action === '重击') return op.attack;
+  const type = { '战技': 'skill', '战技II': 'skill', '战技III': 'skill', '连携': 'combo', '大招': 'ultimate' }[step.action];
+  return type ? `${op.file}-${type}` : null;
 }
 
 function loadImage(name) {
@@ -69,7 +72,7 @@ function loadImage(name) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error(`无法加载图片：${name}`));
-    image.src = name.startsWith('element-') ? `assets/elements/${name.slice(8)}.png` : `${base}${name}.png`;
+    image.src = `${base}${name}.png`;
   }));
   return imageTasks.get(name);
 }
@@ -138,23 +141,30 @@ function circleImage(image, x, y, radius, portrait = false) {
 
 function drawNode(node, y) {
   const x = node.x, portrait = images.get(`${operators[node.operator].file}-portrait`);
-  const accent = node.action === 'ultimate' ? '#dce83d' : '#f4f5ee';
-  const color = colors[node.element] || '#7e8780';
+  const accent = node.action === '大招' ? '#dce83d' : '#f4f5ee';
+  const badge = assetName(node), cx = x + 43, cy = y + 44;
   ctx.fillStyle = '#1e2422'; ctx.beginPath(); ctx.arc(x, y, 67, 0, Math.PI * 2); ctx.fill();
   circleImage(portrait, x, y, 59, true);
-  ctx.strokeStyle = accent; ctx.lineWidth = node.action === 'ultimate' ? 6 : 3;
+  ctx.strokeStyle = accent; ctx.lineWidth = node.action === '大招' ? 6 : 3;
   ctx.beginPath(); ctx.arc(x, y, 61, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = '#171b19'; ctx.beginPath(); ctx.arc(x + 43, y + 44, 31, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.stroke();
-  if (node.action === 'switch') text('⇄', x + 43, y + 55, '800 34px Arial', '#f4f5ee', 'center');
-  else circleImage(images.get(assetName(node)), x + 43, y + 44, 23);
-  if (node.element !== '无') {
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 17, y + 70, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.drawImage(images.get(`element-${node.element}`), x + 5, y + 58, 24, 24);
+  if (badge || node.action === '切人' || node.action === '闪避') {
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#171b19'; ctx.fillRect(cx - 31, cy - 31, 62, 62);
+    node.elements.forEach((element, index) => {
+      const start = (30 + (node.elements.length === 1 ? 0 : index * 60)) * Math.PI / 180;
+      const end = (node.elements.length === 1 ? 150 : 90 + index * 60) * Math.PI / 180;
+      ctx.fillStyle = colors[element]; ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, 31, start, end); ctx.closePath(); ctx.fill();
+    });
+    ctx.restore();
+    ctx.strokeStyle = '#f4f5ee'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, 31, 0, Math.PI * 2); ctx.stroke();
+    if (badge) ctx.drawImage(images.get(badge), cx - 23, cy - 23, 46, 46);
+    else text(node.action === '切人' ? '⇄' : '闪', cx, cy + 11, '800 31px Arial, "PingFang SC"', '#f4f5ee', 'center');
   }
-  text(node.label, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
+  text(node.action === '其他' ? node.note : node.action, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
   if (node.time !== null) text(timeLabel(node.time), x, y + 138, '800 20px Arial', '#dce83d', 'center');
-  const chars = [...node.note];
+  const chars = [...(node.action === '其他' ? '' : node.note)];
   for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 163 + i / 9 * 18, '600 15px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
 }
 
@@ -200,10 +210,10 @@ function draw({ title, rowSeconds, steps }) {
 async function render() {
   download.disabled = true;
   try {
-    const data = parseDocument(input.value);
+    const data = parseDocument(input.value, posterConfig.value);
     const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
-    const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, ...(step.action === 'switch' ? [] : [assetName(step)]), ...(step.element === '无' ? [] : [`element-${step.element}`])]));
+    const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, assetName(step)].filter(Boolean)));
     colors = await colorsTask;
     await Promise.all([...names].map(async name => images.set(name, await loadImage(name))));
     draw(data);
@@ -219,6 +229,11 @@ document.querySelector('#file').addEventListener('change', async event => {
   if (file) { input.value = await file.text(); render(); }
   event.target.value = '';
 });
+document.querySelector('#config-file').addEventListener('change', async event => {
+  const file = event.target.files[0];
+  if (file) { posterConfig.value = await file.text(); render(); }
+  event.target.value = '';
+});
 download.addEventListener('click', () => {
   canvas.toBlob(blob => {
     if (!blob) return;
@@ -229,7 +244,12 @@ download.addEventListener('click', () => {
   }, 'image/png');
 });
 if (location.protocol === 'file:') status.textContent = '请通过本地服务打开页面';
-else fetch('examples/rotation.yaml').then(response => response.text()).then(source => {
+else Promise.all(['examples/rotation.csv', 'examples/poster.toml'].map(async url => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`无法加载示例：${url}`);
+  return response.text();
+})).then(([source, config]) => {
   if (!input.value) input.value = source;
+  if (!posterConfig.value) posterConfig.value = config;
   render();
 }).catch(error => { status.textContent = error.message; status.classList.add('error'); });

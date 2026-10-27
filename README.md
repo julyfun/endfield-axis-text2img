@@ -1,13 +1,15 @@
 # Endfield Axis
 
-把终末地战斗技能顺序 YAML 转成一张图片时间轴。节点是干员头像与右下角的动作图标，箭头表示释放顺序。图标边框及角标使用每条动作指定的属性。
+把终末地战斗动作 CSV 生成图片时间轴。节点使用干员头像和对应技能图标；技能属性从内置查表取得，画在动作图标圆内向下的 120° 扇形中。
 
-在仓库目录运行 `python3 -m http.server 4173`，打开 `http://127.0.0.1:4173/`。粘贴 YAML 或导入文件，点击「生成预览」，再下载 PNG。图片、配色和解析器都在仓库内，运行时无需联网或安装依赖。浏览器直接打开 `file://` 页面无法加载配置与导出图片。
+在仓库目录运行 `python3 -m http.server 4173`，打开 `http://127.0.0.1:4173/`。粘贴或导入 CSV 与海报 TOML，点击「生成预览」，再下载 PNG。运行时无需联网或安装依赖。
 
-YAML 顶层可设置 `title` 和 `row_seconds`。`steps` 每行按“干员、动作、标签、时间、属性、备注”排列；备注可省略。干员使用全名：赛希、祀、诀、提弗洛斯。动作取 `attack`、`skill`、`combo`、`ultimate`、`switch`；属性取物理、寒冷、灼热、自然、电磁或无，按技能效果填写，不能由干员推断。时间写成 `'6:57'`，未知时写 `~`。已知时间必须倒序，未知时间只用于插值定位。同一秒的相邻节点不画箭头。
+CSV 表头为 `operator,action,time,note`，见[示例](examples/rotation.csv)。`operator` 用赛希、祀、诀、提弗洛斯；`提丰`是提弗洛斯的输入别名。`action` 用主控、战技、战技II、战技III、连携、大招、普攻、重击、切人、其他、闪避。`note` 是小字说明；动作是「其他」时，`note` 改为节点主标题。时间如 `6:57`，已填写的时间必须倒序，空白时间按相邻节点插值。同一秒的相邻节点不画箭头。属性不需要在 CSV 中填写；同一战技的后续阶段继承战技属性，双属性增幅用双色扇形。
 
-[示例 YAML](examples/rotation.yaml) 与 [示例输出](examples/rotation.png) 对应。原输入中一行包含多个动作的地方已拆成多个节点；原先未指明执行者的重击，示例暂按赛希、诀分别标注，可直接在 YAML 中修改。无直接属性伤害的辅助动作标为“无”。
+[海报 TOML](examples/poster.toml) 可设 `title`（默认“战斗技能时间轴”）和 `row_seconds`（默认 10，范围 1–60）；字段不写或文件为空时使用默认值。[示例图片](examples/rotation.png)由示例 CSV 和海报 TOML 生成。
 
-透明视频兼容性测试片均为 3 秒、1080p、30 fps，内容相同。可依次试 [HEVC Alpha MOV](examples/alpha-test-hevc.mov)（约 1.5 MB）、[VP9 Alpha WebM](examples/alpha-test-vp9.webm)（约 0.7 MB）、[QuickTime Animation MOV](examples/alpha-test-animation.mov)（约 21 MB）；原 [ProRes 4444 MOV](examples/alpha-test.mov)（约 34 MB）保留作对照。导入必剪后放在录屏上方，检查能否播放，以及画面上部能否透出录屏、下方半透明面板能否正常合成。这些文件仅用于验证必剪的 Alpha 导入，不对应示例 YAML 的完整时间轴。
+[视频 TOML](examples/video.toml) 暂定 `width`、`height`（默认 1920×1080）、`fps`（默认 30）、`seconds_visible`（默认 10，单行可见时间）和 `sync_offset_seconds`（默认 0，首条 CSV 动作在录屏中的秒数）。视频渲染尚未接入这组配置；当前透明测试片是固定演示，后续仍使用同一 CSV。
 
-图片及五属性展示色来自 AKEData，详见 [来源记录](assets/sources.csv) 和 [配色](assets/elements.yaml)。新增干员时使用 [.agents/skills/akedata-assets/SKILL.md](.agents/skills/akedata-assets/SKILL.md) 获取对应素材。YAML 解析器采用仓库内的 js-yaml（MIT 许可）。
+透明视频兼容性测试片均为 3 秒、1080p、30 fps，内容相同：[HEVC Alpha MOV](examples/alpha-test-hevc.mov)、[VP9 Alpha WebM](examples/alpha-test-vp9.webm)、[QuickTime Animation MOV](examples/alpha-test-animation.mov) 和 [ProRes 4444 MOV](examples/alpha-test.mov)。必剪已验证 QuickTime Animation 版本可播放。
+
+图片及属性配色来自 AKEData，详见[来源记录](assets/sources.csv)与[配色](assets/elements.toml)。新增干员素材时按 [.agents/skills/akedata-assets/SKILL.md](.agents/skills/akedata-assets/SKILL.md) 获取。CSV 和 TOML 解析器分别为仓库内的 Papa Parse（MIT）与 smol-toml（BSD-3-Clause）。
