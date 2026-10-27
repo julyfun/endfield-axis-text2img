@@ -170,12 +170,17 @@ function layout(steps, width, rowSeconds) {
       const target = left + ((low + rowSeconds - node.position) / rowSeconds) * (right - left);
       if (i) {
         const gap = nodeGap(lane.nodes[i - 1], node);
-        node.u = Math.max(Math.min(target, lane.nodes[i - 1].u + renderStyle.max_group_gap + renderStyle.node_radius * 2), lane.nodes[i - 1].u + gap);
+        node.u = closeTogether(lane.nodes[i - 1], node)
+          ? lane.nodes[i - 1].u + gap
+          : Math.max(Math.min(target, lane.nodes[i - 1].u + renderStyle.max_group_gap + renderStyle.node_radius * 2), lane.nodes[i - 1].u + gap);
       } else node.u = Math.max(left, target);
     });
     if (lane.nodes.length) {
       lane.nodes.at(-1).u = Math.min(right, lane.nodes.at(-1).u);
-      for (let i = lane.nodes.length - 2; i >= 0; i--) lane.nodes[i].u = Math.min(lane.nodes[i].u, lane.nodes[i + 1].u - nodeGap(lane.nodes[i], lane.nodes[i + 1]));
+      for (let i = lane.nodes.length - 2; i >= 0; i--) {
+        const gap = nodeGap(lane.nodes[i], lane.nodes[i + 1]);
+        lane.nodes[i].u = closeTogether(lane.nodes[i], lane.nodes[i + 1]) ? lane.nodes[i + 1].u - gap : Math.min(lane.nodes[i].u, lane.nodes[i + 1].u - gap);
+      }
       if (lane.nodes[0].u < left) {
         const span = lane.nodes.slice(1).reduce((sum, node, i) => sum + nodeGap(lane.nodes[i], node), 0);
         let x = Math.max(left, Math.min(left + ((low + rowSeconds - lane.nodes[0].position) / rowSeconds) * (right - left), right - span));
