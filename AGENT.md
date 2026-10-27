@@ -1,0 +1,2 @@
+- add less, delete more
+- commit changes often

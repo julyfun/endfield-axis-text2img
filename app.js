@@ -157,11 +157,10 @@ function drawNode(node, y) {
   ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 3; ctx.stroke();
   if (node.action === 'switch') text('⇄', x + 43, y + 55, '800 34px Arial', '#f4f5ee', 'center');
   else circleImage(images.get(assetName(node)), x + 43, y + 44, 23);
-  text(node.operator, x, y + 103, '700 16px Arial, "PingFang SC", sans-serif', '#b3bdb5', 'center');
-  text(node.label, x, y + 132, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
-  if (node.time !== null) text(timeLabel(node.time), x, y + 158, '800 20px Arial', '#dce83d', 'center');
+  text(node.label, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
+  if (node.time !== null) text(timeLabel(node.time), x, y + 138, '800 20px Arial', '#dce83d', 'center');
   const chars = [...node.note];
-  for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 182 + i / 9 * 18, '600 15px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
+  for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 163 + i / 9 * 18, '600 15px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
 }
 
 function draw(steps) {
@@ -187,7 +186,7 @@ function draw(steps) {
     const direction = row % 2 ? -1 : 1;
     ctx.fillStyle = row % 2 ? '#202624' : '#1c2220'; ctx.fillRect(75, top, width - 150, 320);
     if (previous && lane.nodes.length) {
-      const routeX = row % 2 ? width - 91 : 91;
+      const routeX = row % 2 ? width - 38 : 38;
       line(previous.x + previous.direction * 68, previous.y, routeX, previous.y, '#dce83d', 3);
       line(routeX, previous.y, routeX, y, '#dce83d', 3);
       arrow(routeX, y, lane.nodes[0].x - direction * 70, y);
