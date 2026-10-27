@@ -8,7 +8,9 @@ CSV 表头为 `operator,action,time,note`，见[示例](examples/rotation.csv)�
 
 [海报 TOML](examples/poster.toml) 可设 `title`（默认“战斗技能时间轴”）、`timeline`（页脚可选署名）、`row_seconds`（默认 10，范围 1–60）和 `operators`（默认提弗洛斯、祀、诀、赛希）。队伍顺序决定键位：切人 `F1`–`F4`，战技 `1`–`4`，连携 `E`，大招为圆圈内的 `1`–`4`；普攻、重击用鼠标左键图标，闪避用右键图标。`timeline` 不填或为空时，页脚只显示“制作：@菲比是拉拉”。未填写的 TOML 字段使用默认值。[示例图片](examples/rotation.png)由示例 CSV 和海报 TOML 生成。
 
-[视频 TOML](examples/video.toml) 暂定 `width`、`height`（默认 1920×1080）、`fps`（默认 30）、`seconds_visible`（默认 10，单行可见时间）、`sync_offset_seconds`（默认 0，首条 CSV 动作在录屏中的秒数）和 `operators`。视频渲染尚未接入这组配置；当前透明测试片是固定演示，后续仍使用同一 CSV。
+[视频 TOML](examples/video.toml) 可设 `width`、`height`（默认 1920×1080）、`fps`（默认 30）、`sync_offset_seconds`（默认 0，首条 CSV 动作在录屏中的秒数）和 `operators`。使用与海报相同的 CSV；动作按顺序等距排列，镜头在每个触发点前以弹簧动画滑动，并在触发时落到该动作。相邻触发至少间隔 0.15 秒，过近的动作依次顺延；当前动作不透明，其他动作半透明，末尾停留 1 秒。
+
+生成透明视频需要 Node.js、Google Chrome 和 FFmpeg。在仓库目录运行 `npm install`，再运行 `npm run video -- examples/rotation.csv examples/video.toml output/rotation.mov`。输出为 QuickTime Animation MOV；`output/` 不纳入 Git。Chrome 不在默认安装位置时设置 `CHROME_PATH`。
 
 透明视频兼容性测试片均为 3 秒、1080p、30 fps，内容相同：[HEVC Alpha MOV](examples/alpha-test-hevc.mov)、[VP9 Alpha WebM](examples/alpha-test-vp9.webm)、[QuickTime Animation MOV](examples/alpha-test-animation.mov) 和 [ProRes 4444 MOV](examples/alpha-test.mov)。必剪已验证 QuickTime Animation 版本可播放。
 

@@ -1,6 +1,5 @@
 width = 1920
 height = 1080
 fps = 30
-seconds_visible = 10
 sync_offset_seconds = 0
 operators = ["提弗洛斯", "祀", "诀", "赛希"]

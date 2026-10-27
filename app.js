@@ -243,6 +243,15 @@ function draw({ title, rowSeconds, timeline, steps }) {
   dimensions.textContent = `${width} × ${height} PX`;
 }
 
+async function prepareAssets(steps, includeLogo = false) {
+  const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, assetName(step)].filter(Boolean)));
+  if (includeLogo) names.add('endfield-logo');
+  if (steps.some(step => ['普攻', '重击', '处决'].includes(step.action))) names.add('mouse-left');
+  if (steps.some(step => step.action === '闪避')) names.add('mouse-right');
+  colors = await colorsTask;
+  await Promise.all([...names].map(async name => images.set(name, await loadImage(name))));
+}
+
 async function render() {
   download.disabled = true;
   try {
@@ -250,12 +259,7 @@ async function render() {
     const data = parseDocument(input.value, posterConfig.value);
     const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
-    const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, assetName(step)].filter(Boolean)));
-    names.add('endfield-logo');
-    if (steps.some(step => ['普攻', '重击', '处决'].includes(step.action))) names.add('mouse-left');
-    if (steps.some(step => step.action === '闪避')) names.add('mouse-right');
-    colors = await colorsTask;
-    await Promise.all([...names].map(async name => images.set(name, await loadImage(name))));
+    await prepareAssets(steps, true);
     draw(data);
     document.querySelector('#row-seconds').textContent = `${rowSeconds} SEC / LINE`;
     status.textContent = `已生成 ${steps.length} 个节点`;
@@ -284,7 +288,7 @@ download.addEventListener('click', () => {
   }, 'image/png');
 });
 if (location.protocol === 'file:') status.textContent = '请通过本地服务打开页面';
-else Promise.all(['examples/rotation.csv', 'examples/poster.toml'].map(async url => {
+else if (!new URLSearchParams(location.search).has('video')) Promise.all(['examples/rotation.csv', 'examples/poster.toml'].map(async url => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`无法加载示例：${url}`);
   return response.text();

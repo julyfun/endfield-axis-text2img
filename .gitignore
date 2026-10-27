@@ -5,12 +5,7 @@
 .zed
 __pycache__
 ignore*
-
 /rust-action-capture/target/
-
 /rust-action-capture/target-*/
-
-/rust-action-capture/target-*/
-
-/rust-action-capture/target-*/
-
+/node_modules/
+/output/
