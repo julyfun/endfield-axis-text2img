@@ -148,7 +148,21 @@ function circleImage(image, x, y, radius, portrait = false) {
   ctx.restore();
 }
 
-function drawNode(node, y, showTime) {
+function drawKey(node, x, y) {
+  const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
+  const mouse = node.action === '闪避' ? 'mouse-right' : ['普攻', '重击'].includes(node.action) ? 'mouse-left' : null;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, .85)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 5;
+  if (mouse) ctx.drawImage(images.get(mouse), x - 18, y - 18, 36, 36);
+  else if (node.action === '大招') {
+    ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.stroke();
+    text(String(node.slot), x, y + 9, '800 34px Arial', '#dce83d', 'center');
+  } else if (key) text(key, x, y + 11, '800 36px Arial', '#dce83d', 'center');
+  ctx.restore();
+}
+
+function drawNode(node, y, showTime, direction = 1, showNote = true) {
   const x = node.x, portrait = images.get(`${operators[node.operator].file}-portrait`);
   const accent = node.action === '大招' ? '#dce83d' : '#f4f5ee';
   const badge = assetName(node), cx = x + 43, cy = y + 44;
@@ -175,22 +189,19 @@ function drawNode(node, y, showTime) {
     else text(node.action === '切人' ? '⇄' : '闪', cx, cy + 11, '800 31px Arial, "PingFang SC"', '#f4f5ee', 'center');
   }
   const label = node.action === '其他' ? node.note || node.action : node.action;
-  text(label, x, y + 110, '800 30px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
-  const keyX = x + ctx.measureText(label).width / 2 + 18, keyY = y + 102;
-  if (node.action === '普攻' || node.action === '重击' || node.action === '处决' || node.action === '闪避') {
-    const mouse = node.action === '闪避' ? 'mouse-right' : 'mouse-left';
-    ctx.drawImage(images.get(mouse), keyX - 12, keyY - 12, 24, 24);
-  } else if (node.action === '大招') {
-    ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(keyX, keyY, 13, 0, Math.PI * 2); ctx.stroke();
-    text(String(node.slot), keyX, keyY + 8, '800 24px Arial', '#dce83d', 'center');
-  } else {
-    const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
-    if (key) text(key, keyX, keyY + 8, '800 30px Arial', '#dce83d', 'center');
+  ctx.font = '800 30px Arial, "PingFang SC", sans-serif';
+  const labelWidth = ctx.measureText(label).width;
+  text(label, x, y - 78, '800 30px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
+  if (showTime) {
+    const timeX = direction > 0 ? x - labelWidth / 2 - 12 : x + labelWidth / 2 + 12;
+    text(timeLabel(node.time), timeX, y - 78, '800 27px Arial', '#dce83d', direction > 0 ? 'right' : 'left');
   }
-  if (showTime) text(timeLabel(node.time), x, y + 142, '800 27px Arial', '#dce83d', 'center');
-  const chars = [...(node.action === '其他' ? '' : node.note)];
-  for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 169 + i / 9 * 18, '600 20px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
+  drawKey(node, x, y + 98);
+  if (showNote) {
+    const chars = [...(node.action === '其他' ? '' : node.note)];
+    for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 145 + i / 9 * 18, '600 20px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
+
+  }
 }
 
 function draw({ title, rowSeconds, timeline, steps }) {
@@ -229,7 +240,7 @@ function draw({ title, rowSeconds, timeline, steps }) {
       const second = Math.floor(node.position);
       const showTime = node.specifiedTime && !shownTimes.has(second);
       if (showTime) shownTimes.add(second);
-      drawNode(node, y, showTime);
+      drawNode(node, y, showTime, direction, true);
     });
     if (lane.nodes.length) previous = { x: lane.nodes.at(-1).x, y, direction, position: lane.nodes.at(-1).position };
   });
@@ -267,18 +278,18 @@ async function render() {
   } catch (error) { status.textContent = error.reason || error.message; status.classList.add('error'); }
 }
 
-document.querySelector('#render').addEventListener('click', render);
-document.querySelector('#file').addEventListener('change', async event => {
+document.querySelector('#render')?.addEventListener('click', render);
+document.querySelector('#file')?.addEventListener('change', async event => {
   const file = event.target.files[0];
   if (file) { input.value = await file.text(); render(); }
   event.target.value = '';
 });
-document.querySelector('#config-file').addEventListener('change', async event => {
+document.querySelector('#config-file')?.addEventListener('change', async event => {
   const file = event.target.files[0];
   if (file) { posterConfig.value = await file.text(); render(); }
   event.target.value = '';
 });
-download.addEventListener('click', () => {
+download?.addEventListener('click', () => {
   canvas.toBlob(blob => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
@@ -288,7 +299,7 @@ download.addEventListener('click', () => {
   }, 'image/png');
 });
 if (location.protocol === 'file:') status.textContent = '请通过本地服务打开页面';
-else if (!new URLSearchParams(location.search).has('video')) Promise.all(['examples/rotation.csv', 'examples/poster.toml'].map(async url => {
+else if (!location.pathname.endsWith('/video.html') && !new URLSearchParams(location.search).has('video')) Promise.all(['examples/rotation.csv', 'examples/poster.toml'].map(async url => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`无法加载示例：${url}`);
   return response.text();

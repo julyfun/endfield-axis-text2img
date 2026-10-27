@@ -1,0 +1,12 @@
+.video-workspace { display: grid; grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); min-height: calc(100vh - 70px); }
+.video-editor { display: flex; flex-direction: column; padding: 38px 32px 24px 40px; border-right: 1px solid #3c4240; background: #1c2020; }
+.video-preview { padding: 30px clamp(20px, 4vw, 64px) 20px; min-width: 0; background: #252a28; }
+.video-canvas-wrap { width: 100%; overflow: hidden; background: #0d1110; box-shadow: 0 24px 60px #0006; line-height: 0; }
+.video-canvas-wrap canvas { width: 100%; height: auto; display: block; }
+.video-actions, .video-controls { display: flex; align-items: center; gap: 10px; }
+.preview-actions { display: flex; align-items: center; gap: 10px; }
+.video-controls { margin-top: 16px; }
+.video-controls input[type="range"] { flex: 1; accent-color: #dce83d; }
+.video-readout { color: #dce83d; font: 700 12px Arial, sans-serif; letter-spacing: 1px; }
+.video-page .status { min-height: 30px; }
+@media (max-width: 850px) { .video-workspace { grid-template-columns: 1fr; } .video-editor { border-right: 0; border-bottom: 1px solid #3c4240; padding: 28px 22px 20px; } .video-preview { padding: 25px 18px; } }

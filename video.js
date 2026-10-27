@@ -23,10 +23,8 @@ async function prepareVideo(source, configSource) {
   return { width, height, fps, triggers, frameCount: Math.ceil((triggers.at(-1) + 1) * fps) };
 }
 
-// Normalize the damped spring so it reaches the next action at its trigger.
-function spring(progress) {
-  const value = t => 1 - Math.exp(-9 * t) * (Math.cos(13 * t) + 9 / 13 * Math.sin(13 * t));
-  return value(progress) / value(1);
+function easeInOut(progress) {
+  return progress < .5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 }
 
 function drawVideoFrame(time) {
@@ -34,9 +32,13 @@ function drawVideoFrame(time) {
   let active = -1;
   while (active + 1 < steps.length && time >= triggers[active + 1]) active++;
   let camera = Math.max(active, 0);
+  let focus = active;
   if (active >= 0 && active + 1 < steps.length) {
     const end = triggers[active + 1], start = Math.max(triggers[active], end - .42);
-    if (time > start) camera = active + spring((time - start) / (end - start));
+    if (time >= start) {
+      focus = active + 1;
+      camera = active + easeInOut(Math.min(1, (time - start) / (end - start)));
+    }
   }
   const scale = Math.min(width / 1920, height / 1080);
   const viewWidth = width / scale, viewHeight = height / scale;
@@ -58,15 +60,10 @@ function drawVideoFrame(time) {
   steps.forEach((step, i) => {
     const x = viewWidth / 2 + (i - camera) * spacing;
     if (x < -100 || x > viewWidth + 100) return;
-    ctx.save(); ctx.globalAlpha = i === active ? 1 : .38;
-    drawNode({ ...step, x }, y, step.showTime);
+    ctx.save(); ctx.globalAlpha = i === focus ? 1 : .38;
+    drawNode({ ...step, x }, y, step.showTime, -1, false);
     ctx.restore();
   });
-  if (active >= 0) {
-    const x = viewWidth / 2 + (active - camera) * spacing;
-    ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(x, y, 72, 0, Math.PI * 2); ctx.stroke();
-  }
   ctx.restore();
-  return { active, camera };
+  return { active, focus, camera };
 }
