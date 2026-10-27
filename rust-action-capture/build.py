@@ -34,7 +34,11 @@ def main():
     for name in data_files:
         command += ["--add-data", str(core / name) + os.pathsep + str(Path(name).parent)]
     command += [str(project / "capture/worker.py")]
-    subprocess.run(command, cwd=project, check=True)
+    build_env = os.environ.copy()
+    build_env["PYTHONPATH"] = str(core / "src") + os.pathsep + build_env.get("PYTHONPATH", "")
+    subprocess.run(command, cwd=project, env=build_env, check=True)
+    subprocess.run([str(work / "dist/endfield-capture/endfield-capture.exe"),
+                    "--log-dir", str(work / "packaging-check"), "--check-protocols"], check=True)
     cargo = shutil.which("cargo") or str(Path.home() / ".cargo/bin/cargo.exe")
     command = [cargo]
     if args.toolchain:

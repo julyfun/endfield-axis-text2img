@@ -50,6 +50,20 @@ class EventSink:
             emit(event)
 
 
+def verify_protocols() -> None:
+    from endfield_pcap.message_registry import MessageRegistry
+    from endfield_pcap.runtime_paths import bundle_root
+
+    registry = MessageRegistry(bundle_root() / "data")
+    required = (
+        "CS_BATTLE_OP", "CS_PING", "SC_PING", "SC_SELF_SCENE_INFO",
+        "SC_GAME_MECHANICS_SYNC_CHALLENGE_START", "SC_GAME_MECHANICS_SYNC_CHALLENGE_COMPLETE",
+    )
+    missing = [name for name in required if registry.load_message_class(name) is None]
+    if missing:
+        raise RuntimeError("抓包组件缺少协议模块，请重新构建完整发行包：" + ", ".join(missing))
+
+
 async def capture(args) -> None:
     from endfield_pcap.install_detect import detect_game_dll_dir
     from endfield_pcap.models import ServiceObserver
@@ -103,11 +117,16 @@ def main() -> int:
     parser.add_argument("--game-dir", type=Path)
     parser.add_argument("--log-dir", type=Path, required=True)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--check-protocols", action="store_true")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
     try:
         configure_core(args.core_root)
+        verify_protocols()
+        if args.check_protocols:
+            emit({"type": "capture_status", "state": "protocols_ready"})
+            return 0
         asyncio.run(capture(args))
         return 0
     except Exception as exc:
