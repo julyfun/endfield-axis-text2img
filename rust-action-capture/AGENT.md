@@ -7,3 +7,4 @@
 ## Project Requirements
 
 - The standalone application must support packet capture itself. Reading existing capture logs alone does not satisfy this requirement.
+- After building, show a clickable absolute path to the runnable local EXE. Do not offer a ZIP download unless requested.
