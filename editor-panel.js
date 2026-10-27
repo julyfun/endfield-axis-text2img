@@ -1,6 +1,17 @@
 const editorPanel = document.querySelector('[data-editor-panel]');
 
-function saveEditorText(text, filename, type) {
+async function saveEditorText(text, filename, type, chooseLocation = false) {
+  if (chooseLocation && window.showSaveFilePicker) {
+    const extension = filename.slice(filename.lastIndexOf('.'));
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: type.startsWith('text/csv') ? 'CSV 文件' : 'TOML 文件', accept: { [type.split(';')[0]]: [extension] } }]
+    });
+    const writable = await handle.createWritable();
+    await writable.write(text);
+    await writable.close();
+    return;
+  }
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([text], { type }));
   link.download = filename;
@@ -52,6 +63,12 @@ if (editorPanel) {
       event.target.value = '';
     });
     field.save.addEventListener('click', () => saveEditorText(field.input.value, importedName, field.mime));
-    field.saveAs.addEventListener('click', () => saveEditorText(field.input.value, field.fallback, field.mime));
+    field.saveAs.addEventListener('click', () => saveEditorText(field.input.value, field.fallback, field.mime, true).catch(error => {
+      if (error.name === 'AbortError') return;
+      const status = editorPanel.querySelector('#status');
+      const details = editorPanel.querySelector('#error-details');
+      if (status) { status.textContent = error.message; status.classList.add('error'); }
+      if (details) { details.hidden = false; details.textContent = error.stack || error.message; }
+    }));
   });
 }
