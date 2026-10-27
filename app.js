@@ -121,7 +121,7 @@ function loadImage(name) {
   if (!imageTasks.has(name)) imageTasks.set(name, new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`无法加载图片：${name}`));
+    image.onerror = () => { imageTasks.delete(name); reject(new Error(`无法加载图片：${name}`)); };
     image.src = name === 'endfield-logo' ? 'assets/endfield-logo.svg' : name.startsWith('mouse-') ? `assets/keys/${name}.svg` : `${base}${name}.png`;
   }));
   return imageTasks.get(name);
