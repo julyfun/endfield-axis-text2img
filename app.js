@@ -177,17 +177,17 @@ function drawNode(node, y, showTime) {
   }
   const label = node.action === '其他' ? node.note : node.action;
   text(label, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
-  const keyX = x + ctx.measureText(label).width / 2 + 18, keyY = y + 100;
+  const keyX = x + ctx.measureText(label).width / 2 + 18, keyY = y + 102;
   if (node.action === '普攻' || node.action === '重击' || node.action === '闪避') {
     const mouse = node.action === '闪避' ? 'mouse-right' : 'mouse-left';
     ctx.drawImage(images.get(mouse), keyX - 12, keyY - 12, 24, 24);
   } else if (node.action === '大招') {
     ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(keyX, keyY, 13, 0, Math.PI * 2); ctx.stroke();
-    text(String(node.slot), keyX, keyY + 7, '800 22px Arial', '#dce83d', 'center');
+    text(String(node.slot), keyX, keyY + 8, '800 24px Arial', '#dce83d', 'center');
   } else {
     const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
-    if (key) text(key, keyX, keyY + 8, '800 22px Arial', '#dce83d', 'center');
+    if (key) text(key, keyX, keyY + 8, '800 24px Arial', '#dce83d', 'center');
   }
   if (showTime) text(timeLabel(node.time), x, y + 138, '800 20px Arial', '#dce83d', 'center');
   const chars = [...(node.action === '其他' ? '' : node.note)];
