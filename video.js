@@ -99,11 +99,13 @@ function drawVideoFrame(time) {
       const elapsed = time - step.trigger;
       if (elapsed < 0 || elapsed >= pulseDuration) return;
       const stepProgress = elapsed / pulseDuration;
+      const radiusProgress = 1 - Math.pow(1 - stepProgress, renderStyle.pulse_radius_ease);
+      const alpha = 1 - Math.pow(stepProgress, renderStyle.pulse_alpha_ease);
       const x = viewWidth / 2 + step.world - camera;
       if (x < -100 || x > viewWidth + 100) return;
-      ctx.strokeStyle = colorWithAlpha(renderStyle.pulse_color, 1 - stepProgress);
+      ctx.strokeStyle = colorWithAlpha(renderStyle.pulse_color, alpha);
       ctx.lineWidth = renderStyle.pulse_start_width + stepProgress * (renderStyle.pulse_end_width - renderStyle.pulse_start_width);
-      ctx.beginPath(); ctx.arc(x, y, renderStyle.pulse_start_radius + stepProgress * (renderStyle.pulse_end_radius - renderStyle.pulse_start_radius), 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, renderStyle.pulse_start_radius + radiusProgress * (renderStyle.pulse_end_radius - renderStyle.pulse_start_radius), 0, Math.PI * 2); ctx.stroke();
     });
   }
   ctx.restore();
