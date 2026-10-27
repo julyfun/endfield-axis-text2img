@@ -197,6 +197,9 @@ impl App {
                     .and_then(|id| self.skill_by_inst.get(&id))
                     .cloned()
                     .unwrap_or_default();
+                let Some(action) = classify(&skill) else {
+                    return;
+                };
                 let Some(owner) = e["owner_id"]
                     .as_i64()
                     .and_then(|id| self.name_by_inst.get(&id))
@@ -215,7 +218,7 @@ impl App {
                     / 1000.0;
                 self.actions.push(Action {
                     operator: owner,
-                    action: classify(&skill).into(),
+                    action: action.into(),
                     time,
                     note: skill,
                 });
@@ -367,8 +370,11 @@ impl Drop for App {
     }
 }
 
-fn classify(skill: &str) -> &str {
-    if skill.contains("ultimate") {
+fn classify(skill: &str) -> Option<&str> {
+    if skill.is_empty() {
+        return None;
+    }
+    Some(if skill.contains("ultimate") {
         "大招"
     } else if skill.contains("combo") {
         "连携"
@@ -379,10 +385,10 @@ fn classify(skill: &str) -> &str {
     } else if skill.contains("power_attack") {
         "重击"
     } else if skill.contains("attack") {
-        "普攻"
+        return None;
     } else {
         "其他"
-    }
+    })
 }
 fn format_time(t: f64) -> String {
     format!("{}:{:06.3}", (t / 60.0).floor() as i64, t % 60.0)
@@ -486,6 +492,43 @@ mod tests {
         assert!(app.name_by_inst.is_empty());
         assert!(app.skill_by_inst.is_empty());
         assert!(app.countdown_end_ms.is_none());
+    }
+
+    #[test]
+    fn csv_excludes_normal_attacks_but_keeps_skills_and_heavy_attacks() {
+        let mut app = App::default();
+        app.auto_save = false;
+        battle(&mut app);
+        for (inst, skill) in [
+            (8, "chr_0036_jsspsi_attack1"),
+            (9, "chr_0036_jsspsi_combo_skill"),
+            (10, "chr_0036_jsspsi_ultimate_skill"),
+            (11, "chr_0036_jsspsi_power_attack"),
+        ] {
+            app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":inst, "template_str_id":skill}));
+            app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":inst, "timestamp_ms":1800000002000_i64}));
+        }
+        let dir = std::env::temp_dir().join(format!(
+            "endfield-filter-test-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        app.csv_dir = dir.to_string_lossy().into_owned();
+        let path = app.save_csv().unwrap();
+        let rows: Vec<_> = csv::Reader::from_path(&path)
+            .unwrap()
+            .records()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(
+            rows.iter().map(|r| &r[1]).collect::<Vec<_>>(),
+            ["战技", "连携", "大招", "重击"]
+        );
+        assert!(rows.iter().all(|row| !row[3].ends_with("_attack1")));
+        fs::remove_file(path).unwrap();
+        fs::remove_dir(dir).unwrap();
     }
 
     #[test]

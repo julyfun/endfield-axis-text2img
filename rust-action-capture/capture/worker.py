@@ -35,11 +35,22 @@ class EventSink:
         if event.get("session_id") != self.session:
             self.session = event.get("session_id")
             emit({"type": "capture_session", "session_id": self.session})
+        if kind in {"SC_SELF_SCENE_INFO_SKILLS", "SC_ATTACH_SERVER_SKILL", "SC_UPDATE_SERVER_SKILL"}:
+            for skill in event.get("skills") or []:
+                self({**skill, "type": "BattleOpSkillAttach", "session_id": self.session,
+                      "timestamp_ms": event.get("timestamp_ms")})
+            return
+        if kind == "SC_DETACH_SERVER_SKILL":
+            for inst in event.get("del_skill_inst_ids") or []:
+                emit({"type": "BattleOpSkillDetach", "skill_inst_id": inst})
+            return
         if kind == "BattleOpSkillAttach":
             event = dict(event)
             event["template_str_id"] = self.resolver.resolve_skill(
                 event.get("template_str_id"), event.get("template_int_id")
             ) or str(event.get("template_int_id") or "")
+            if not event["template_str_id"]:
+                return
         if kind in {
             "BattleOpSkillAttach", "BattleOpSkillDetach", "BattleOpSkillStartCast",
             "BattleOpModifyBattleState", "SC_SELF_SCENE_INFO", "squad_update",

@@ -16,10 +16,38 @@ worker.configure_core(Path(os.environ["ENDFIELD_CAPTURE_CORE"]))
 from endfield_pcap.models import RuntimeMetrics
 from endfield_pcap.packet_resolver import PacketResolver
 from endfield_pcap.proto_generated.CS_BATTLE_OP_pb2 import CS_BATTLE_OP
+from endfield_pcap.proto_generated.SC_SELF_SCENE_INFO_pb2 import SC_SELF_SCENE_INFO
 from endfield_pcap.service import SessionPipeline
 
 
 class WorkerTests(unittest.TestCase):
+    def test_login_skill_list_initializes_casts_without_client_attach_events(self):
+        sink = worker.EventSink(PacketResolver())
+        pipeline = SessionPipeline.__new__(SessionPipeline)
+        pipeline.session_id = "login-session"
+        pipeline.squad_index = {}
+        pipeline.entity_index = {}
+        pipeline.metrics = RuntimeMetrics()
+        pipeline.on_event = lambda event: sink(event.as_dict())
+        scene = SC_SELF_SCENE_INFO()
+        character = scene.detail.char_list.add()
+        for inst, numeric in [(7, 3297), (8, 3414), (9, 3722), (10, 3093)]:
+            skill = character.battle_info.skill_list.add()
+            skill.inst_id = inst
+            skill.skill_id.int_id = numeric
+        scene = SC_SELF_SCENE_INFO.FromString(scene.SerializeToString())
+        rows = [pipeline._server_skill_row(42, skill) for skill in scene.detail.char_list[0].battle_info.skill_list]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            pipeline._emit_server_skill_rows_event("SC_SELF_SCENE_INFO_SKILLS", 42, None, rows, 1800000000000)
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        skills = {e["skill_inst_id"]: e["template_str_id"] for e in events if e["type"] == "BattleOpSkillAttach"}
+        self.assertEqual(skills, {7:"chr_0036_jsspsi_normal_skill", 8:"chr_0036_jsspsi_combo_skill", 9:"chr_0036_jsspsi_ultimate_skill", 10:"chr_0036_jsspsi_attack1"})
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            sink({"type":"SC_DETACH_SERVER_SKILL", "session_id":"login-session", "del_skill_inst_ids":[7]})
+        self.assertEqual(json.loads(output.getvalue()), {"type":"BattleOpSkillDetach", "skill_inst_id":7})
+
     def test_protobuf_cast_reaches_ndjson_with_resolved_skill(self):
         sink = worker.EventSink(PacketResolver())
         pipeline = SessionPipeline.__new__(SessionPipeline)
