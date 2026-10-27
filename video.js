@@ -22,11 +22,16 @@ async function prepareVideo(source, configSource) {
     if (group && closeTogether(group.steps.at(-1), step)) group.steps.push(step);
     else groups.push({ time: step.time, steps: [step] });
   });
-  const timeScale = 240, nodeSpacing = 136;
+  const timeScale = 240, nodeSpacing = 136, groupGap = 184;
+  let previousWorld = 0, previousHalf = 0;
   groups.forEach((group, groupIndex) => {
     group.trigger = Number((offset + steps[0].time - group.time).toFixed(6));
-    group.world = (steps[0].time - group.time) * timeScale;
+    group.halfWidth = (group.steps.length - 1) * nodeSpacing / 2;
+    const timeWorld = (steps[0].time - group.time) * timeScale;
+    group.world = groupIndex ? Math.max(timeWorld, previousWorld + previousHalf + group.halfWidth + groupGap) : timeWorld;
     group.steps.forEach((step, i) => { step.groupIndex = groupIndex; step.world = group.world + (i - (group.steps.length - 1) / 2) * nodeSpacing; });
+    previousWorld = group.world;
+    previousHalf = group.halfWidth;
     triggers.push(group.trigger);
   });
   canvas.width = width; canvas.height = height;
@@ -59,7 +64,6 @@ function drawVideoFrame(time) {
   ctx.save(); ctx.scale(scale, scale);
   ctx.fillStyle = 'rgba(16, 21, 20, .66)';
   ctx.fillRect(0, y - 96, viewWidth, viewHeight - y + 96);
-  line(0, y - 96, viewWidth, y - 96, 'rgba(220, 232, 61, .55)', 2);
   ctx.save(); ctx.globalAlpha = .4;
   for (let i = 1; i < steps.length; i++) {
     const x1 = viewWidth / 2 + steps[i - 1].world - camera + 78;
@@ -72,7 +76,7 @@ function drawVideoFrame(time) {
   steps.forEach((step, i) => {
     const x = viewWidth / 2 + step.world - camera;
     if (x < -100 || x > viewWidth + 100) return;
-    ctx.save(); ctx.globalAlpha = i === focus ? 1 : .38;
+    ctx.save(); ctx.globalAlpha = step.groupIndex === focus ? 1 : .38;
     drawNode({ ...step, x }, y, step.showTime, -1, false);
     ctx.restore();
   });
