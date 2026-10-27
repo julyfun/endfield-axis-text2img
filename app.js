@@ -254,6 +254,11 @@ function drawNode(node, y, showTime, direction = 1, showNote = true) {
 
 function draw({ title, rowSeconds, timeline, steps, style }) {
   renderStyle = style;
+  let groupIndex = -1;
+  steps.forEach((step, i) => {
+    if (i === 0 || !closeTogether(steps[i - 1], step)) groupIndex++;
+    step.groupIndex = groupIndex;
+  });
   const groups = new Map();
   steps.forEach(step => { const key = Math.floor(step.position / rowSeconds); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(step); });
   const span = Math.max(...[...groups.values()].map(group => group.slice(1).reduce((sum, node, i) => sum + nodeGap(group[i], node), 0)));
@@ -272,7 +277,7 @@ function draw({ title, rowSeconds, timeline, steps, style }) {
   const duration = steps[0].position - steps.at(-1).position;
   text(`${Number(duration.toFixed(3))} SEC`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
   let previous = null;
-  const shownTimes = new Set();
+  const shownGroups = new Set();
   lanes.forEach((lane, row) => {
     const top = renderStyle.header_height + row * renderStyle.lane_step, y = top + 86;
     const direction = row % 2 ? -1 : 1;
@@ -286,9 +291,8 @@ function draw({ title, rowSeconds, timeline, steps, style }) {
     }
     lane.nodes.forEach((node, i) => { if (i && !closeTogether(lane.nodes[i - 1], node)) arrow(lane.nodes[i - 1].x + direction * 69, y, node.x - direction * 70, y); });
     lane.nodes.forEach(node => {
-      const second = Math.floor(node.position);
-      const showTime = node.specifiedTime && !shownTimes.has(second);
-      if (showTime) shownTimes.add(second);
+      const showTime = node.specifiedTime && !shownGroups.has(node.groupIndex);
+      if (showTime) shownGroups.add(node.groupIndex);
       drawNode(node, y, showTime, direction, true);
     });
     if (lane.nodes.length) previous = { x: lane.nodes.at(-1).x, y, direction, position: lane.nodes.at(-1).position };

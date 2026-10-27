@@ -11,12 +11,7 @@ async function prepareVideo(source, configSource) {
   if (typeof offset !== 'number' || !Number.isFinite(offset) || offset < 0) throw new Error('sync_offset_seconds 需要非负数');
   if (![style.time_scale, style.node_spacing, style.min_group_gap, style.max_group_gap].every(value => Number.isFinite(value) && value >= 0) || style.max_group_gap < style.min_group_gap) throw new Error('视频间距参数无效：max_group_gap 不能小于 min_group_gap');
   await prepareAssets(steps);
-  const seen = new Set(), triggers = [];
-  steps.forEach((step, i) => {
-    const second = Math.floor(step.time);
-    step.showTime = step.specifiedTime && !seen.has(second);
-    if (step.showTime) seen.add(second);
-  });
+  const triggers = [];
   const groups = [];
   steps.forEach(step => {
     const group = groups.at(-1);
@@ -36,6 +31,7 @@ async function prepareVideo(source, configSource) {
     group.world = groupIndex ? previousWorld + previousExtent + groupExtent + boundedGap : timeWorld;
     group.steps.forEach((step, i) => {
       step.groupIndex = groupIndex;
+      step.showTime = i === 0 && step.specifiedTime;
       step.trigger = Number((offset + steps[0].time - step.time).toFixed(6));
       step.world = group.world + (i - (group.steps.length - 1) / 2) * nodeSpacing;
     });
