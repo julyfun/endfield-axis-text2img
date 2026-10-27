@@ -184,10 +184,10 @@ function drawNode(node, y, showTime) {
   } else if (node.action === '大招') {
     ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(keyX, keyY, 13, 0, Math.PI * 2); ctx.stroke();
-    text(String(node.slot), keyX, keyY + 7, '800 20px Arial', '#dce83d', 'center');
+    text(String(node.slot), keyX, keyY + 7, '800 22px Arial', '#dce83d', 'center');
   } else {
     const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
-    if (key) text(key, keyX, keyY + 8, '800 20px Arial', '#dce83d', 'center');
+    if (key) text(key, keyX, keyY + 8, '800 22px Arial', '#dce83d', 'center');
   }
   if (showTime) text(timeLabel(node.time), x, y + 138, '800 20px Arial', '#dce83d', 'center');
   const chars = [...(node.action === '其他' ? '' : node.note)];
