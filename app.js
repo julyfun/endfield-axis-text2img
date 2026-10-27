@@ -1,4 +1,4 @@
-const input = document.querySelector('#csv');
+const input = document.querySelector('#source');
 const canvas = document.querySelector('#poster');
 const status = document.querySelector('#status');
 const dimensions = document.querySelector('#dimensions');
@@ -12,48 +12,40 @@ const operators = {
   '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel' }
 };
 const actions = new Set(['attack', 'skill', 'combo', 'ultimate', 'switch']);
+const elements = new Set(['物理', '寒冷', '灼热', '自然', '电磁', '无']);
 const imageTasks = new Map(), images = new Map();
+const colorsTask = fetch('assets/elements.yaml').then(response => {
+  if (!response.ok) throw new Error('无法加载属性配色');
+  return response.text();
+}).then(text => jsyaml.load(text));
+let colors = {};
 
-function parseTable(text) {
-  const source = text.replace(/^\uFEFF/, '');
-  const delimiter = source.split(/\r?\n/, 1)[0].includes('\t') ? '\t' : ',';
-  const records = [];
-  let row = [], cell = '', quoted = false;
-  for (let i = 0; i < source.length; i++) {
-    const char = source[i];
-    if (char === '"') {
-      if (quoted && source[i + 1] === '"') { cell += '"'; i++; }
-      else if (quoted) quoted = false;
-      else if (!cell) quoted = true;
-      else cell += char;
-    } else if (!quoted && char === delimiter) {
-      row.push(cell); cell = '';
-    } else if (!quoted && (char === '\n' || char === '\r')) {
-      if (char === '\r' && source[i + 1] === '\n') i++;
-      row.push(cell); records.push(row); row = []; cell = '';
-    } else cell += char;
-  }
-  if (quoted) throw new Error('CSV 引号未闭合');
-  if (cell || row.length) records.push([...row, cell]);
-  const header = (records.shift() || []).map(value => value.trim().toLowerCase());
-  const columns = ['operator', 'action', 'label', 'time', 'note'].map(name => header.indexOf(name));
-  if (columns.some(index => index < 0)) throw new Error('表头需要 operator,action,label,time,note');
+function parseDocument(source) {
+  const document = jsyaml.load(source);
+  if (!document || !Array.isArray(document.steps)) throw new Error('YAML 需要 steps 列表');
+  const rowSeconds = document.row_seconds ?? 10;
+  const title = document.title || '战斗技能时间轴';
+  if (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60) throw new Error('row_seconds 需要 1–60 的整数');
+  if (typeof title !== 'string' || [...title].length > 14) throw new Error('title 最多 14 个字');
   let previous = Infinity;
-  const steps = records.filter(record => record.some(value => value.trim())).map((record, index) => {
-    const [operator, action, label, rawTime, note] = columns.map(i => (record[i] || '').trim());
-    if (!operators[operator]) throw new Error(`第 ${index + 2} 行：未知干员 ${operator || '（空）'}`);
-    if (!actions.has(action)) throw new Error(`第 ${index + 2} 行：未知动作 ${action || '（空）'}`);
-    if (!label || [...label].length > 7) throw new Error(`第 ${index + 2} 行：label 需要 1–7 个字`);
-    if ([...note].length > 36) throw new Error(`第 ${index + 2} 行：备注最多 36 个字`);
+  const steps = document.steps.map((record, index) => {
+    if (!Array.isArray(record) || record.length < 5 || record.length > 6) throw new Error(`第 ${index + 1} 个节点需要 5–6 列`);
+    const [operator, action, label, rawTime, element, note = ''] = record;
+    if (!operators[operator]) throw new Error(`第 ${index + 1} 个节点：未知干员 ${operator || '（空）'}`);
+    if (!actions.has(action)) throw new Error(`第 ${index + 1} 个节点：未知动作 ${action || '（空）'}`);
+    if (typeof label !== 'string' || !label || [...label].length > 7) throw new Error(`第 ${index + 1} 个节点：标签需要 1–7 个字`);
+    if (!elements.has(element)) throw new Error(`第 ${index + 1} 个节点：未知属性 ${element || '（空）'}`);
+    if (typeof note !== 'string' || [...note].length > 36) throw new Error(`第 ${index + 1} 个节点：备注最多 36 个字`);
     let time = null;
-    if (rawTime) {
+    if (rawTime !== null && rawTime !== undefined && rawTime !== '') {
+      if (typeof rawTime !== 'string') throw new Error(`第 ${index + 1} 个节点：时间需加引号`);
       const match = /^(\d+):([0-5]\d)$/.exec(rawTime);
-      if (!match) throw new Error(`第 ${index + 2} 行：时间格式应为 6:57`);
+      if (!match) throw new Error(`第 ${index + 1} 个节点：时间格式应为 6:57`);
       time = Number(match[1]) * 60 + Number(match[2]);
-      if (time > previous) throw new Error(`第 ${index + 2} 行：时间不能上升`);
+      if (time > previous) throw new Error(`第 ${index + 1} 个节点：时间不能上升`);
       previous = time;
     }
-    return { operator, action, label, time, note };
+    return { operator, action, label, time, element, note };
   });
   if (!steps.length || steps.every(step => step.time === null)) throw new Error('至少需要一条动作和一个时间');
   const known = steps.map((step, i) => step.time === null ? -1 : i).filter(i => i >= 0);
@@ -64,7 +56,7 @@ function parseTable(text) {
     else if (after === undefined) step.position = steps[before].time;
     else step.position = steps[before].time + (steps[after].time - steps[before].time) * (i - before) / (after - before);
   });
-  return steps;
+  return { title, rowSeconds, steps };
 }
 
 function assetName(step) {
@@ -77,7 +69,7 @@ function loadImage(name) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error(`无法加载图片：${name}`));
-    image.src = `${base}${name}.png`;
+    image.src = name.startsWith('element-') ? `assets/elements/${name.slice(8)}.png` : `${base}${name}.png`;
   }));
   return imageTasks.get(name);
 }
@@ -108,16 +100,16 @@ function timeLabel(seconds) {
 function sameSecond(a, b) { return a.time !== null && a.time === b.time; }
 function nodeGap(a, b) { return sameSecond(a, b) ? 144 : 184; }
 
-function layout(steps, width) {
-  const start = Math.floor(steps[0].position / 10);
-  const end = Math.floor(steps.at(-1).position / 10);
+function layout(steps, width, rowSeconds) {
+  const start = Math.floor(steps[0].position / rowSeconds);
+  const end = Math.floor(steps.at(-1).position / rowSeconds);
   const lanes = Array.from({ length: start - end + 1 }, (_, i) => ({ bucket: start - i, nodes: [] }));
-  steps.forEach((step, index) => lanes[start - Math.floor(step.position / 10)].nodes.push({ ...step, index }));
+  steps.forEach(step => lanes[start - Math.floor(step.position / rowSeconds)].nodes.push({ ...step }));
   const left = 145, right = width - 145;
   lanes.forEach((lane, row) => {
-    const low = lane.bucket * 10;
+    const low = lane.bucket * rowSeconds;
     lane.nodes.forEach((node, i) => {
-      const target = left + ((low + 10 - node.position) / 10) * (right - left);
+      const target = left + ((low + rowSeconds - node.position) / rowSeconds) * (right - left);
       node.u = i ? Math.max(target, lane.nodes[i - 1].u + nodeGap(lane.nodes[i - 1], node)) : Math.max(left, target);
     });
     if (lane.nodes.length) {
@@ -125,7 +117,7 @@ function layout(steps, width) {
       for (let i = lane.nodes.length - 2; i >= 0; i--) lane.nodes[i].u = Math.min(lane.nodes[i].u, lane.nodes[i + 1].u - nodeGap(lane.nodes[i], lane.nodes[i + 1]));
       if (lane.nodes[0].u < left) {
         const span = lane.nodes.slice(1).reduce((sum, node, i) => sum + nodeGap(lane.nodes[i], node), 0);
-        let x = Math.max(left, Math.min(left + ((low + 10 - lane.nodes[0].position) / 10) * (right - left), right - span));
+        let x = Math.max(left, Math.min(left + ((low + rowSeconds - lane.nodes[0].position) / rowSeconds) * (right - left), right - span));
         lane.nodes.forEach((node, i) => { x += i ? nodeGap(lane.nodes[i - 1], node) : 0; node.u = x; });
       }
     }
@@ -147,28 +139,31 @@ function circleImage(image, x, y, radius, portrait = false) {
 function drawNode(node, y) {
   const x = node.x, portrait = images.get(`${operators[node.operator].file}-portrait`);
   const accent = node.action === 'ultimate' ? '#dce83d' : '#f4f5ee';
+  const color = colors[node.element] || '#7e8780';
   ctx.fillStyle = '#1e2422'; ctx.beginPath(); ctx.arc(x, y, 67, 0, Math.PI * 2); ctx.fill();
   circleImage(portrait, x, y, 59, true);
   ctx.strokeStyle = accent; ctx.lineWidth = node.action === 'ultimate' ? 6 : 3;
   ctx.beginPath(); ctx.arc(x, y, 61, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = '#dce83d'; ctx.beginPath(); ctx.arc(x - 52, y - 49, 20, 0, Math.PI * 2); ctx.fill();
-  text(String(node.index + 1).padStart(2, '0'), x - 52, y - 43, '800 16px Arial', '#171a17', 'center');
   ctx.fillStyle = '#171b19'; ctx.beginPath(); ctx.arc(x + 43, y + 44, 31, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#dce83d'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.stroke();
   if (node.action === 'switch') text('⇄', x + 43, y + 55, '800 34px Arial', '#f4f5ee', 'center');
   else circleImage(images.get(assetName(node)), x + 43, y + 44, 23);
+  if (node.element !== '无') {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x + 17, y + 70, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(images.get(`element-${node.element}`), x + 5, y + 58, 24, 24);
+  }
   text(node.label, x, y + 110, '800 23px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
   if (node.time !== null) text(timeLabel(node.time), x, y + 138, '800 20px Arial', '#dce83d', 'center');
   const chars = [...node.note];
   for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 163 + i / 9 * 18, '600 15px Arial, "PingFang SC", sans-serif', '#bac4bb', 'center');
 }
 
-function draw(steps) {
+function draw({ title, rowSeconds, steps }) {
   const groups = new Map();
-  steps.forEach(step => { const key = Math.floor(step.position / 10); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(step); });
+  steps.forEach(step => { const key = Math.floor(step.position / rowSeconds); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(step); });
   const span = Math.max(...[...groups.values()].map(group => group.slice(1).reduce((sum, node, i) => sum + nodeGap(group[i], node), 0)));
   const width = Math.max(1800, span + 360);
-  const lanes = layout(steps, width);
+  const lanes = layout(steps, width, rowSeconds);
   const height = 300 + lanes.length * 340 + 100;
   canvas.width = width; canvas.height = height;
   ctx.fillStyle = '#151919'; ctx.fillRect(0, 0, width, height);
@@ -176,7 +171,7 @@ function draw(steps) {
   for (let y = 0; y < height; y += 120) line(0, y, width, y, '#ffffff0b', 1);
   ctx.fillStyle = '#dce83d'; ctx.fillRect(0, 0, 15, 240); ctx.fillRect(75, 69, 64, 9);
   text('ENDFIELD / TACTICAL AXIS', 75, 111, '800 22px Arial', '#dce83d');
-  text('战斗技能时间轴', 72, 214, '900 88px Arial, "PingFang SC", sans-serif');
+  text(title, 72, 214, '900 88px Arial, "PingFang SC", sans-serif');
   line(75, 251, width - 75, 251, '#dce83d', 3);
   text(`${String(steps.length).padStart(2, '0')} ACTIONS`, 75, 288, '800 23px Arial');
   text(`${timeLabel(steps[0].position)}  →  ${timeLabel(steps.at(-1).position)}`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
@@ -205,15 +200,17 @@ function draw(steps) {
 async function render() {
   download.disabled = true;
   try {
-    const steps = parseTable(input.value);
+    const data = parseDocument(input.value);
+    const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
-    const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, ...(step.action === 'switch' ? [] : [assetName(step)])]));
+    const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, ...(step.action === 'switch' ? [] : [assetName(step)]), ...(step.element === '无' ? [] : [`element-${step.element}`])]));
+    colors = await colorsTask;
     await Promise.all([...names].map(async name => images.set(name, await loadImage(name))));
-    draw(steps);
-    const fileMode = location.protocol === 'file:';
-    status.textContent = fileMode ? '请通过本地服务打开页面后下载 PNG' : `已生成 ${steps.length} 个节点`;
-    download.disabled = fileMode;
-  } catch (error) { status.textContent = error.message; status.classList.add('error'); }
+    draw(data);
+    document.querySelector('#row-seconds').textContent = `${rowSeconds} SEC / LINE`;
+    status.textContent = `已生成 ${steps.length} 个节点`;
+    download.disabled = false;
+  } catch (error) { status.textContent = error.reason || error.message; status.classList.add('error'); }
 }
 
 document.querySelector('#render').addEventListener('click', render);
@@ -231,4 +228,8 @@ download.addEventListener('click', () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, 'image/png');
 });
-render();
+if (location.protocol === 'file:') status.textContent = '请通过本地服务打开页面';
+else fetch('examples/rotation.yaml').then(response => response.text()).then(source => {
+  if (!input.value) input.value = source;
+  render();
+}).catch(error => { status.textContent = error.message; status.classList.add('error'); });

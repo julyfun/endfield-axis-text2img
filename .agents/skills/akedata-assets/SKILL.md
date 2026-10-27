@@ -9,7 +9,7 @@ Use this when an image is actually needed by the poster. AKEData's operator page
 
 1. Confirm the full operator name from the user's input. Short rotation labels such as `赛` and `祀` are ambiguous; do not guess an identity or substitute fan art.
 2. Open the relevant operator entry, inspect the displayed portrait, and use the resolved image URL from the image element. Prefer a portrait or icon suited to the target crop. Check that the downloaded file is an actual image at useful resolution.
-3. Save only the assets used by the feature under `assets/operators/` with stable, descriptive filenames. Record each source page, image URL, attribution/license information available on the page, and retrieval date in `assets/sources.csv`.
+3. Save only used assets under `assets/operators/` or `assets/elements/`. Record each source page, image URL, attribution/license information available on the page, and retrieval date in `assets/sources.csv`.
 4. Keep the original file untouched. Derive crops separately if needed. Do not commit a bulk mirror of the wiki or hotlink runtime artwork.
 
 Example retrieval after verifying an image URL:

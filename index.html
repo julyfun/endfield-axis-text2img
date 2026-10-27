@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>终末地战斗轴 · 一图流</title>
   <link rel="stylesheet" href="style.css">
+  <script src="vendor/js-yaml.min.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -14,44 +15,17 @@
   </header>
 
   <main class="workspace">
-    <section class="editor" aria-label="CSV 编辑器">
+    <section class="editor" aria-label="YAML 编辑器">
       <div class="section-heading"><span class="index">01 / INPUT</span><h1>技能顺序</h1></div>
-      <p class="field-label">CSV / TSV <span>operator · action · label · time · note</span></p>
-      <textarea id="csv" spellcheck="false" aria-label="技能顺序 CSV">operator,action,label,time,note
-赛希,skill,战技,6:57,
-祀,skill,战技,6:56,
-诀,combo,连携,6:56,
-祀,skill,拉球,6:54,
-赛希,attack,重击,6:54,
-诀,switch,切人,6:54,
-祀,skill,丢球,6:52,
-祀,skill,战技,6:51,
-祀,skill,拉球,6:51,
-诀,attack,重击,6:51,
-赛希,combo,连携,6:50,
-诀,skill,战技,6:47,"四腐蚀，别放葱连携"
-提弗洛斯,attack,普通三段,,
-提弗洛斯,skill,战技,6:47,
-赛希,ultimate,大招,,
-提弗洛斯,attack,四箭,6:43,
-祀,combo,连携,6:42,
-提弗洛斯,combo,连携,6:42,
-诀,skill,战技,6:42,
-祀,ultimate,大招,6:39,
-诀,skill,战技,6:38,
-诀,combo,连携,6:37,
-诀,ultimate,大招,,
-提弗洛斯,attack,四箭,,
-提弗洛斯,combo,连携,,
-提弗洛斯,attack,五箭,6:32,
-祀,skill,丢球,,</textarea>
+      <p class="field-label">YAML <span>干员 · 动作 · 标签 · 时间 · 属性 · 备注</span></p>
+      <textarea id="source" spellcheck="false" aria-label="技能顺序 YAML"></textarea>
       <div class="editor-actions">
-        <label class="button button-secondary" for="file">导入 CSV</label>
-        <input id="file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain" hidden>
+        <label class="button button-secondary" for="file">导入 YAML</label>
+        <input id="file" type="file" accept=".yaml,.yml,text/yaml,text/plain" hidden>
         <button class="button button-primary" id="render" type="button">生成预览 <span aria-hidden="true">↗</span></button>
       </div>
       <p class="status" id="status" role="status"></p>
-      <div class="editor-foot"><span>UTF-8</span><span>10 SEC / LINE</span><span>时间倒序</span></div>
+      <div class="editor-foot"><span>UTF-8</span><span id="row-seconds">10 SEC / LINE</span><span>时间倒序</span></div>
     </section>
 
     <section class="preview" aria-label="图片预览">
