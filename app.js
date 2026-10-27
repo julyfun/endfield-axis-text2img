@@ -4,17 +4,22 @@ const canvas = document.querySelector('#poster');
 const status = document.querySelector('#status');
 const dimensions = document.querySelector('#dimensions');
 const download = document.querySelector('#download');
+const errorDetails = document.querySelector('#error-details');
 const ctx = canvas.getContext('2d');
 const base = 'assets/operators/';
-const operators = {
-  '赛希': { file: 'saixi', attack: 'attack-funnel', elements: { '普攻': '寒冷', '重击': '寒冷', '战技': '寒冷', '连携': '寒冷', '大招': '寒冷' } },
-  '祀': { file: 'si', attack: 'attack-claymore', elements: { '普攻': '寒冷', '重击': '寒冷', '战技': '寒冷', '战技II': '寒冷', '战技III': '寒冷', '连携': '寒冷', '大招': '寒冷' } },
-  '诀': { file: 'jue', attack: 'attack-funnel', elements: { '普攻': '自然', '重击': '自然', '战技': '自然', '连携': '自然', '大招': '自然' } },
-  '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel', elements: { '普攻': '自然', '重击': '自然', '战技': '自然', '连携': '自然', '大招': '自然' } }
-};
-const defaultParty = ['提弗洛斯', '祀', '诀', '赛希'];
+let operators = {}, defaultParty = [];
 const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '处决', '切人', '其他', '闪避']);
+
 const imageTasks = new Map(), images = new Map();
+const operatorsTask = fetch('assets/operators.toml').then(response => {
+  if (!response.ok) throw new Error('无法加载干员元数据');
+  return response.text();
+}).then(text => {
+  const data = TOML.parse(text);
+  defaultParty = data.default_party || [];
+  operators = data.operator || {};
+  return operators;
+});
 const aliasesTask = fetch('assets/aliases.toml').then(response => {
   if (!response.ok) throw new Error('无法加载干员别名');
   return response.text();
@@ -24,6 +29,12 @@ const colorsTask = fetch('assets/elements.toml').then(response => {
   return response.text();
 }).then(text => TOML.parse(text));
 let aliases = {}, colors = {};
+
+function showError(error) {
+  const message = error.reason || error.message || String(error);
+  status.textContent = message; status.classList.add('error');
+  if (errorDetails) { errorDetails.hidden = false; errorDetails.textContent = error.stack || message; }
+}
 
 function parseDocument(source, configSource) {
   const config = TOML.parse(configSource.trim());
@@ -61,7 +72,9 @@ function parseDocument(source, configSource) {
     } else if (index === 0) {
       throw new Error('第 2 行：首条动作必须填写时间');
     }
-    return { operator, action, time, position: time, specifiedTime: Boolean(rawTime), note, slot: slots.indexOf(operator) + 1, element: operators[operator].elements[action === '处决' ? '重击' : action] || null };
+    const element = operators[operator].elements?.[action === '处决' ? '重击' : action] || operators[operator].element || null;
+    return { operator, action, time, position: time, specifiedTime: Boolean(rawTime), note, slot: slots.indexOf(operator) + 1, element };
+
   });
   if (!steps.length) throw new Error('至少需要一条动作');
   return { title, rowSeconds, timeline: timeline.trim(), steps };
@@ -70,10 +83,8 @@ function parseDocument(source, configSource) {
 function assetName(step) {
   const op = operators[step.operator];
   if (step.action === '普攻' || step.action === '重击' || step.action === '处决') return op.attack;
-  if (step.operator === '祀' && step.action === '战技II') return 'si-skill-ii';
-  if (step.operator === '祀' && step.action === '战技III') return 'si-skill-iii';
-  const type = { '战技': 'skill', '战技II': 'skill', '战技III': 'skill', '连携': 'combo', '大招': 'ultimate' }[step.action];
-  return type ? `${op.file}-${type}` : null;
+  return op.assets?.[step.action] || null;
+
 }
 
 function loadImage(name) {
@@ -150,7 +161,7 @@ function circleImage(image, x, y, radius, portrait = false) {
 
 function drawKey(node, x, y) {
   const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
-  const mouse = node.action === '闪避' ? 'mouse-right' : ['普攻', '重击'].includes(node.action) ? 'mouse-left' : null;
+  const mouse = node.action === '闪避' ? 'mouse-right' : ['普攻', '重击', '处决'].includes(node.action) ? 'mouse-left' : null;
   ctx.save();
   ctx.shadowColor = 'rgba(0, 0, 0, .85)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 4; ctx.shadowOffsetY = 5;
   if (mouse) ctx.drawImage(images.get(mouse), x - 18, y - 18, 36, 36);
@@ -266,16 +277,17 @@ async function prepareAssets(steps, includeLogo = false) {
 async function render() {
   download.disabled = true;
   try {
-    aliases = await aliasesTask;
+    [aliases] = await Promise.all([aliasesTask, operatorsTask]);
     const data = parseDocument(input.value, posterConfig.value);
     const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
+    if (errorDetails) { errorDetails.hidden = true; errorDetails.textContent = ''; }
     await prepareAssets(steps, true);
     draw(data);
     document.querySelector('#row-seconds').textContent = `${rowSeconds} SEC / LINE`;
     status.textContent = `已生成 ${steps.length} 个节点`;
     download.disabled = false;
-  } catch (error) { status.textContent = error.reason || error.message; status.classList.add('error'); }
+  } catch (error) { showError(error); }
 }
 
 document.querySelector('#render')?.addEventListener('click', render);
@@ -307,4 +319,4 @@ else if (!location.pathname.endsWith('/video.html') && !new URLSearchParams(loca
   if (!input.value) input.value = source;
   if (!posterConfig.value) posterConfig.value = config;
   render();
-}).catch(error => { status.textContent = error.message; status.classList.add('error'); });
+}).catch(error => { showError(error); });

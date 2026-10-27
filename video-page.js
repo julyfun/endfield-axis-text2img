@@ -5,6 +5,7 @@ const videoReset = document.querySelector('#video-reset');
 const videoProgress = document.querySelector('#video-progress');
 const videoReadout = document.querySelector('#video-readout');
 const videoStatus = document.querySelector('#video-status');
+const videoErrorDetails = document.querySelector('#error-details');
 let videoData = null, videoTime = 0, videoPlaying = false, videoFrame;
 
 function showVideoFrame() {
@@ -27,11 +28,12 @@ function tick(now) {
 async function loadVideo() {
   try {
     videoStatus.textContent = '正在加载本地素材…'; videoStatus.classList.remove('error');
+    videoErrorDetails.hidden = true; videoErrorDetails.textContent = '';
     videoData = await prepareVideo(document.querySelector('#source').value, document.querySelector('#poster-config').value);
     videoData.duration = (videoData.frameCount - 1) / videoData.fps;
     videoProgress.max = videoData.duration; videoTime = 0; showVideoFrame();
-    videoStatus.textContent = `已加载 ${videoData.triggers.length} 个动作`;
-  } catch (error) { videoStatus.textContent = error.message; videoStatus.classList.add('error'); }
+    videoStatus.textContent = `已加载 ${videoData.actions} 个动作 / ${videoData.groups} 个触发组`;
+  } catch (error) { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; }
 }
 
 videoPlay.addEventListener('click', () => {
@@ -46,4 +48,4 @@ videoConfigFile.addEventListener('change', async event => { if (event.target.fil
 
 Promise.all(['examples/rotation.csv', 'examples/video.toml'].map(url => fetch(url).then(response => response.text())))
   .then(([source, config]) => { document.querySelector('#source').value = source; document.querySelector('#poster-config').value = config; return loadVideo(); })
-  .catch(error => { videoStatus.textContent = error.message; videoStatus.classList.add('error'); });
+  .catch(error => { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; });

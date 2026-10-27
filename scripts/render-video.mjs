@@ -27,7 +27,7 @@ async function main() {
     });
     await page.goto('http://axis.local/index.html?video');
     await page.addScriptTag({ path: join(root, 'video.js') });
-    const { fps, frameCount, triggers } = await page.evaluate(({ source, configSource }) => prepareVideo(source, configSource), { source, configSource });
+    const { fps, frameCount, triggers, actions, groups } = await page.evaluate(({ source, configSource }) => prepareVideo(source, configSource), { source, configSource });
     encoder = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-n', '-framerate', String(fps), '-f', 'image2pipe', '-vcodec', 'png', '-i', 'pipe:0', '-an', '-c:v', 'qtrle', '-pix_fmt', 'argb', output], { stdio: ['pipe', 'ignore', 'pipe'] });
     let stderr = '';
     let writeError;
@@ -49,7 +49,7 @@ async function main() {
     encoder.stdin.end();
     await done;
     process.stderr.write('\n');
-    console.log(`已生成 ${output}（${triggers.length} 个动作）`);
+    console.log(`已生成 ${output}（${actions} 个动作，${groups} 个触发组）`);
   } finally {
     if (encoder?.exitCode === null) encoder.kill();
     await browser.close();

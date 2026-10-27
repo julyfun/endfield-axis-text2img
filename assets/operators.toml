@@ -1,0 +1,63 @@
+default_party = ["提弗洛斯", "祀", "诀", "赛希"]
+
+[operator."赛希"]
+file = "saixi"
+attack = "attack-funnel"
+element = "寒冷"
+
+[operator."赛希".assets]
+"战技" = "saixi-skill"
+"连携" = "saixi-combo"
+"大招" = "saixi-ultimate"
+
+[operator."祀"]
+file = "si"
+attack = "attack-claymore"
+element = "寒冷"
+
+[operator."祀".assets]
+"战技" = "si-skill"
+"战技II" = "si-skill-ii"
+"战技III" = "si-skill-iii"
+"连携" = "si-combo"
+"大招" = "si-ultimate"
+
+[operator."诀"]
+file = "jue"
+attack = "attack-funnel"
+element = "自然"
+
+[operator."诀".assets]
+"战技" = "jue-skill"
+"连携" = "jue-combo"
+"大招" = "jue-ultimate"
+
+[operator."提弗洛斯"]
+file = "typhoea"
+attack = "attack-funnel"
+element = "自然"
+
+[operator."提弗洛斯".assets]
+"战技" = "typhoea-skill"
+"连携" = "typhoea-combo"
+"大招" = "typhoea-ultimate"
+
+[operator."卡缪"]
+file = "camille"
+attack = "attack-lance"
+element = "灼热"
+
+[operator."卡缪".assets]
+"战技" = "camille-skill"
+"连携" = "camille-combo"
+"大招" = "camille-ultimate"
+
+[operator."莱万汀"]
+file = "laevat"
+attack = "attack-sword"
+element = "灼热"
+
+[operator."莱万汀".assets]
+"战技" = "laevat-skill"
+"连携" = "laevat-combo"
+"大招" = "laevat-ultimate"
