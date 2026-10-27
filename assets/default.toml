@@ -1,6 +1,4 @@
 [common]
-row_seconds = 10
-timeline = ""
 operators = ["提弗洛斯", "祀", "诀", "赛希"]
 close_node_gap = 136
 separate_node_gap = 184
@@ -35,6 +33,8 @@ key_shadow_y = 5
 
 [poster]
 title = "战斗技能时间轴"
+row_seconds = 10
+timeline = ""
 min_width = 1800
 width_padding = 360
 lane_margin = 145
@@ -56,7 +56,7 @@ node_spacing = 136
 min_group_gap = 184
 max_group_gap = 720
 transition_seconds = 0.42
-pulse_duration = 0.48
+pulse_duration = 0.4
 inactive_alpha = 0.38
 connector_alpha = 0.4
 axis_y_offset = 240
@@ -64,6 +64,6 @@ background = "rgba(16, 21, 20, .66)"
 connector_color = "#dce83d"
 pulse_color = "#ffffff"
 pulse_start_radius = 67
-pulse_end_radius = 137
+pulse_end_radius = 126
 pulse_start_width = 5
 pulse_end_width = 2

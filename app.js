@@ -29,11 +29,14 @@ const colorsTask = fetch('assets/elements.toml').then(response => {
   if (!response.ok) throw new Error('无法加载属性配色');
   return response.text();
 }).then(text => TOML.parse(text));
-const defaultsTask = fetch('assets/default.toml').then(response => {
-  if (!response.ok) throw new Error('无法加载默认渲染参数');
-  return response.text();
-}).then(text => TOML.parse(text)).then(data => { defaults = data; return data; });
 let aliases = {}, colors = {}, defaults = {}, renderStyle = {};
+
+async function loadDefaults() {
+  const response = await fetch(`assets/default.toml?ts=${Date.now()}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('无法加载默认渲染参数');
+  defaults = TOML.parse(await response.text());
+  return defaults;
+}
 
 function showError(error) {
   const message = error.reason || error.message || String(error);
@@ -67,11 +70,11 @@ function parseDocument(source, configSource, mode = 'poster') {
   const rowSeconds = config.row_seconds;
   const title = config.title || '战斗技能时间轴';
   const timeline = config.timeline ?? '';
-  if (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60) throw new Error('row_seconds 需要 1–60 的整数');
+  if (mode === 'poster' && (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60)) throw new Error('row_seconds 需要 1–60 的整数');
   if (![config.group_threshold, config.close_node_gap, config.separate_node_gap, config.max_axis_gap].every(value => Number.isFinite(value) && value >= 0)) throw new Error('默认间距参数需要是非负数字');
   if (config.max_axis_gap < config.separate_node_gap) throw new Error('max_axis_gap 不能小于 separate_node_gap');
-  if (typeof title !== 'string' || [...title].length > 14) throw new Error('title 最多 14 个字');
-  if (typeof timeline !== 'string' || [...timeline].length > 40) throw new Error('timeline 需要不超过 40 个字的字符串');
+  if (mode === 'poster' && (typeof title !== 'string' || [...title].length > 14)) throw new Error('title 最多 14 个字');
+  if (mode === 'poster' && (typeof timeline !== 'string' || [...timeline].length > 40)) throw new Error('timeline 需要不超过 40 个字的字符串');
   if (rawConfig.aliases) throw new Error('干员别名请写在 assets/aliases.toml');
   const resolve = name => aliases[name] || name;
   const party = config.operators ?? defaultParty;
@@ -310,7 +313,7 @@ async function prepareAssets(steps, includeLogo = false) {
 async function render() {
   download.disabled = true;
   try {
-    [aliases] = await Promise.all([aliasesTask, operatorsTask, defaultsTask]);
+    [aliases] = await Promise.all([aliasesTask, operatorsTask, loadDefaults()]);
     const data = parseDocument(input.value, posterConfig.value);
     const { steps, rowSeconds } = data;
     status.textContent = '正在加载本地图片…'; status.classList.remove('error', 'warning');

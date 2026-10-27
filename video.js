@@ -1,7 +1,7 @@
 let videoState;
 
 async function prepareVideo(source, configSource) {
-  [aliases] = await Promise.all([aliasesTask, operatorsTask, defaultsTask]);
+  [aliases] = await Promise.all([aliasesTask, operatorsTask, loadDefaults()]);
   const { steps, style, warnings } = parseDocument(source, configSource, 'video');
   renderStyle = style;
   const width = style.width, height = style.height, fps = style.fps;
