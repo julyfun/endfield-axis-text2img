@@ -181,6 +181,7 @@ function layout(steps, width, rowSeconds) {
         let x = Math.max(left, Math.min(left + ((low + rowSeconds - lane.nodes[0].position) / rowSeconds) * (right - left), right - span));
         lane.nodes.forEach((node, i) => { x += i ? nodeGap(lane.nodes[i - 1], node) : 0; node.u = x; });
       }
+      if (row > 0) lane.nodes[0].u = Math.min(lane.nodes[0].u, 38 + renderStyle.node_radius + 3 + renderStyle.max_group_gap);
     }
     lane.nodes.forEach(node => { node.x = row % 2 ? width - node.u : node.u; });
   });
