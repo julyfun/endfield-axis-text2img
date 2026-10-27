@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use eframe::egui;
 use serde::Deserialize;
 use std::{fs, path::{Path, PathBuf}, time::{Duration, Instant}};
@@ -85,16 +87,21 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if self.last_tick.elapsed() >= Duration::from_millis(500) { self.poll(); self.last_tick = Instant::now(); ctx.request_repaint(); }
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Endfield Action Capture"); ui.label("读取 EndfieldLogsClient 的 session_*.ndjson，生成简洁 action CSV");
-            ui.horizontal(|ui| { ui.label("日志目录"); ui.text_edit_singleline(&mut self.log_dir); });
-            ui.horizontal(|ui| { ui.label("CSV 保存目录"); ui.text_edit_singleline(&mut self.csv_dir); });
-            ui.checkbox(&mut self.auto_save, "战斗结束自动保存");
-            if ui.button("立即扫描").clicked() { self.poll(); }
-            ui.separator(); ui.label(&self.status);
+            ui.spacing_mut().item_spacing = egui::vec2(6.0, 4.0);
+            ui.heading("终末地排轴");
+            ui.label(&self.status);
             let elapsed = self.battle_started.map(|t| t.elapsed().as_secs_f32()).unwrap_or(0.0);
-            ui.label(format!("当前场次：{} 个技能 · 首个技能后 {:.1} 秒", self.actions.len(), elapsed));
-            if ui.button("手动保存当前 CSV").clicked() { self.status = match self.save_csv() { Ok(()) => "已保存当前 CSV".into(), Err(e) => format!("保存失败：{e}") }; }
-            egui::ScrollArea::vertical().show(ui, |ui| { for (i, a) in self.actions.iter().enumerate() { ui.label(format!("{:>3}  {:<8} {:<8} {}", i + 1, a.operator, a.action, format_time(a.time))); } });
+            ui.label(format!("{} 个技能 · 已运行 {:.1} 秒", self.actions.len(), elapsed));
+            ui.horizontal(|ui| {
+                if ui.button("扫描").clicked() { self.poll(); }
+                if ui.button("保存 CSV").clicked() { self.status = match self.save_csv() { Ok(()) => "已保存 CSV".into(), Err(e) => format!("保存失败：{e}") }; }
+                ui.checkbox(&mut self.auto_save, "自动保存");
+            });
+            egui::CollapsingHeader::new("设置").show(ui, |ui| {
+                ui.label("日志目录"); ui.text_edit_singleline(&mut self.log_dir);
+                ui.label("CSV 保存目录"); ui.text_edit_singleline(&mut self.csv_dir);
+            });
+            egui::ScrollArea::vertical().max_height(195.0).show(ui, |ui| { for (i, a) in self.actions.iter().enumerate() { ui.label(format!("{}  {}  {}  {}", i + 1, a.operator, a.action, format_time(a.time))); } });
         });
     }
 }
@@ -106,4 +113,24 @@ fn classify(s: &str) -> String { let s = s.to_lowercase(); if s.contains("ultima
 fn format_time(v: Option<f64>) -> String { v.map(|x| format!("{}:{:06.3}", (x / 60.0).floor() as i64, x % 60.0)).unwrap_or_default() }
 fn chrono_like_stamp() -> String { use std::time::{SystemTime, UNIX_EPOCH}; SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs().to_string()).unwrap_or_else(|_| "now".into()) }
 
-fn main() -> eframe::Result<()> { eframe::run_native("Endfield Action Capture", eframe::NativeOptions::default(), Box::new(|_cc| Ok(Box::new(App::default())))) }
+fn main() -> eframe::Result<()> {
+    let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([430.0, 320.0]).with_min_inner_size([360.0, 240.0]).with_resizable(false), ..Default::default() };
+    eframe::run_native("终末地排轴", options, Box::new(|cc| {
+        install_cjk_font(&cc.egui_ctx);
+        Ok(Box::new(App::default()))
+    }))
+}
+
+fn install_cjk_font(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    for path in [r"C:\Windows\Fonts\simhei.ttf", r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\simsun.ttc"] {
+        if let Ok(bytes) = fs::read(path) {
+            fonts.font_data.insert("cjk".into(), egui::FontData::from_owned(bytes).into());
+            for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+                fonts.families.entry(family).or_default().insert(0, "cjk".into());
+            }
+            ctx.set_fonts(fonts);
+            return;
+        }
+    }
+}
