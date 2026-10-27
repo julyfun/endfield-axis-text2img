@@ -6,6 +6,7 @@ const videoProgress = document.querySelector('#video-progress');
 const videoReadout = document.querySelector('#video-readout');
 const videoStatus = document.querySelector('#video-status');
 const videoErrorDetails = document.querySelector('#error-details');
+const videoExport = document.querySelector('#video-export');
 let videoData = null, videoTime = 0, videoPlaying = false, videoFrame;
 
 function showVideoFrame() {
@@ -36,6 +37,52 @@ async function loadVideo() {
   } catch (error) { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; }
 }
 
+function supportedVideoType() {
+  return ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+    .find(type => MediaRecorder.isTypeSupported(type));
+}
+
+async function exportVideo() {
+  if (!videoData || videoExport.disabled) return;
+  const canvas = document.querySelector('#poster');
+  const mimeType = window.MediaRecorder && supportedVideoType();
+  if (!canvas.captureStream || !mimeType) {
+    throw new Error('当前浏览器不支持 Canvas 视频导出，请使用最新版 Chrome。');
+  }
+  videoExport.disabled = true;
+  videoPlaying = false; videoPlay.textContent = '播放'; cancelAnimationFrame(videoFrame);
+  const stream = canvas.captureStream(videoData.fps);
+  const recorder = new MediaRecorder(stream, { mimeType });
+  const chunks = [];
+  recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+  const stopped = new Promise((resolve, reject) => { recorder.onstop = resolve; recorder.onerror = event => reject(event.error || new Error('视频编码失败')); });
+  try {
+    recorder.start();
+    for (let frame = 0; frame < videoData.frameCount; frame++) {
+      videoTime = frame / videoData.fps;
+      drawVideoFrame(videoTime);
+      if (frame % Math.max(1, Math.floor(videoData.fps / 2)) === 0) {
+        videoStatus.textContent = `正在生成视频 ${Math.round(frame / videoData.frameCount * 100)}%`;
+        showVideoFrame();
+      }
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+    recorder.stop();
+    await stopped;
+    const blob = new Blob(chunks, { type: mimeType });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'endfield-axis.webm';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    videoStatus.textContent = `已生成视频（${(blob.size / 1024 / 1024).toFixed(1)} MB）`;
+  } finally {
+    stream.getTracks().forEach(track => track.stop());
+    videoExport.disabled = false;
+    showVideoFrame();
+  }
+}
+
 videoPlay.addEventListener('click', () => {
   if (!videoData) return;
   videoPlaying = !videoPlaying; videoPlay.textContent = videoPlaying ? '暂停' : '播放';
@@ -43,6 +90,7 @@ videoPlay.addEventListener('click', () => {
 });
 videoReset.addEventListener('click', () => { videoPlaying = false; videoPlay.textContent = '播放'; tick.last = 0; videoTime = 0; showVideoFrame(); });
 videoProgress.addEventListener('input', () => { videoPlaying = false; videoPlay.textContent = '播放'; videoTime = Number(videoProgress.value); showVideoFrame(); });
+videoExport.addEventListener('click', () => exportVideo().catch(error => { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; videoExport.disabled = false; }));
 videoFile.addEventListener('change', async event => { if (event.target.files[0]) document.querySelector('#source').value = await event.target.files[0].text(); event.target.value = ''; loadVideo(); });
 videoConfigFile.addEventListener('change', async event => { if (event.target.files[0]) document.querySelector('#poster-config').value = await event.target.files[0].text(); event.target.value = ''; loadVideo(); });
 

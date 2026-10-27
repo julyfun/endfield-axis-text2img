@@ -43,6 +43,10 @@
         <button class="button button-secondary" id="video-reset" type="button">重置</button>
         <input id="video-progress" type="range" min="0" max="0" step="0.001" value="0" aria-label="视频进度">
       </div>
+      <div class="video-export">
+        <button class="button button-primary" id="video-export" type="button">生成视频 <span aria-hidden="true">↓</span></button>
+        <span class="export-hint">浏览器导出 WebM / Alpha</span>
+      </div>
       <p class="status" id="video-status" role="status"></p>
       <pre class="error-details" id="error-details" hidden></pre>
     </section>

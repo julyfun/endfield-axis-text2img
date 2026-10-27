@@ -7,6 +7,8 @@
 .preview-actions { display: flex; align-items: center; gap: 10px; }
 .video-controls { margin-top: 16px; }
 .video-controls input[type="range"] { flex: 1; accent-color: #dce83d; }
+.video-export { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.export-hint { color: #7f8a83; font: 11px/1.4 Arial, sans-serif; }
 .video-readout { color: #dce83d; font: 700 12px Arial, sans-serif; letter-spacing: 1px; }
 .video-page .status { min-height: 30px; }
 @media (max-width: 850px) { .video-workspace { grid-template-columns: 1fr; } .video-editor { border-right: 0; border-bottom: 1px solid #3c4240; padding: 28px 22px 20px; } .video-preview { padding: 25px 18px; } }
