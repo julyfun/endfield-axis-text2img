@@ -10,6 +10,8 @@ from pathlib import Path
 import sys
 import threading
 
+from skill_actions import ActionRules
+
 
 def emit(event: dict) -> None:
     print(json.dumps(event, ensure_ascii=False), flush=True)
@@ -29,6 +31,7 @@ class EventSink:
     def __init__(self, resolver):
         self.resolver = resolver
         self.session = None
+        self.rules = ActionRules(resolver.static_skill_by_numeric.values())
 
     def __call__(self, event: dict) -> None:
         kind = event.get("type")
@@ -51,6 +54,7 @@ class EventSink:
             ) or str(event.get("template_int_id") or "")
             if not event["template_str_id"]:
                 return
+            event["action"] = self.rules.classify(event["template_str_id"])
         if kind in {
             "BattleOpSkillAttach", "BattleOpSkillDetach", "BattleOpSkillStartCast",
             "BattleOpModifyBattleState", "SC_SELF_SCENE_INFO", "squad_update",

@@ -15,6 +15,9 @@ def main():
     args = parser.parse_args()
     project = Path(__file__).resolve().parent
     core = args.core_root.resolve()
+    sys.path.insert(0, str(project / "capture"))
+    from skill_actions import write_maps
+    write_maps(core, project / "data")
     data_files = [
         "data/message_ids_cs.json", "data/message_ids_sc.json",
         "data/packet_semantics/packet_resolver_bundle.json",
@@ -52,6 +55,7 @@ def main():
     shutil.copy2(target / "release/endfield-action-capture.exe", output)
     shutil.copytree(work / "dist/endfield-capture", output / "capture", dirs_exist_ok=True)
     shutil.copy2(project / "README.md", output)
+    shutil.copytree(project / "data", output / "data", dirs_exist_ok=True)
     print(f"Portable application: {output}")
 
 

@@ -21,6 +21,30 @@ from endfield_pcap.service import SessionPipeline
 
 
 class WorkerTests(unittest.TestCase):
+    def test_real_skill_table_stages_finishers_execution_and_ai_filters(self):
+        rules = worker.EventSink(PacketResolver()).rules
+        expected = {
+            "chr_0036_jsspsi_normal_skill": "战技",
+            "chr_0036_jsspsi_normal_skill_1": "战技II",
+            "chr_0036_jsspsi_normal_skill_2": "战技III",
+            "chr_0036_jsspsi_attack1": None,
+            "chr_0036_jsspsi_attack4": None,
+            "chr_0036_jsspsi_attack5": "重击",
+            "chr_0036_jsspsi_power_attack": "处决",
+            "chr_0003_endminf_power_attack2": "处决",
+            "common_character_perfect_dodge": "闪避",
+            "common_character_ai_dash": None,
+            "chr_0036_jsspsi_ai_dodge": None,
+            "common_character_walkretreat": None,
+        }
+        for skill, action in expected.items():
+            with self.subTest(skill=skill):
+                self.assertEqual(rules.classify(skill), action)
+        from skill_actions import ActionRules
+        rules = ActionRules(["chr_test_attack1", "chr_test_attack3", "chr_other_attack4"])
+        self.assertIsNone(rules.classify("chr_test_attack1"))
+        self.assertEqual(rules.classify("chr_test_attack3"), "重击")
+
     def test_login_skill_list_initializes_casts_without_client_attach_events(self):
         sink = worker.EventSink(PacketResolver())
         pipeline = SessionPipeline.__new__(SessionPipeline)
@@ -70,6 +94,7 @@ class WorkerTests(unittest.TestCase):
         events = [json.loads(line) for line in output.getvalue().splitlines()]
         self.assertEqual([e["type"] for e in events], ["capture_session", "BattleOpSkillAttach", "BattleOpSkillStartCast"])
         self.assertEqual(events[1]["template_str_id"], "chr_0004_pelica_normal_skill")
+        self.assertEqual(events[1]["action"], "战技")
         self.assertEqual(events[2]["owner_id"], 42)
         self.assertEqual(events[2]["skill_inst_id"], 7)
 

@@ -16,7 +16,6 @@ struct Action {
     operator: String,
     action: String,
     time: f64,
-    note: String,
 }
 
 struct App {
@@ -32,6 +31,7 @@ struct App {
     status: String,
     packets: u64,
     auto_save: bool,
+    record_dodges: bool,
     show_settings: bool,
 }
 
@@ -54,6 +54,7 @@ impl Default for App {
             status: "未开始抓包".into(),
             packets: 0,
             auto_save: true,
+            record_dodges: false,
             show_settings: false,
         }
     }
@@ -156,9 +157,11 @@ impl App {
             }
             "BattleOpSkillAttach" => {
                 if let (Some(inst), Some(skill)) =
-                    (e["skill_inst_id"].as_i64(), e["template_str_id"].as_str())
+                    (e["skill_inst_id"].as_i64(), e["action"].as_str())
                 {
                     self.skill_by_inst.insert(inst, skill.into());
+                } else if let Some(inst) = e["skill_inst_id"].as_i64() {
+                    self.skill_by_inst.remove(&inst);
                 }
             }
             "BattleOpSkillDetach" => {
@@ -192,12 +195,12 @@ impl App {
                 self.countdown_end_ms = None;
             }
             "BattleOpSkillStartCast" => {
-                let skill = e["skill_inst_id"]
+                let action = e["skill_inst_id"]
                     .as_i64()
                     .and_then(|id| self.skill_by_inst.get(&id))
                     .cloned()
                     .unwrap_or_default();
-                let Some(action) = classify(&skill) else {
+                if action.is_empty() || (action == "闪避" && !self.record_dodges) {
                     return;
                 };
                 let Some(owner) = e["owner_id"]
@@ -220,7 +223,6 @@ impl App {
                     operator: owner,
                     action: action.into(),
                     time,
-                    note: skill,
                 });
             }
             _ => {}
@@ -276,7 +278,7 @@ impl App {
         let mut w = csv::Writer::from_path(&path)?;
         w.write_record(["operator", "action", "time", "note"])?;
         for a in &self.actions {
-            w.write_record([&a.operator, &a.action, &format_time(a.time), &a.note])?;
+            w.write_record([&a.operator, &a.action, &format_time(a.time), ""])?;
         }
         w.flush()?;
         Ok(path)
@@ -289,7 +291,7 @@ impl eframe::App for App {
         ctx.request_repaint_after(Duration::from_millis(100));
         ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
             600.0,
-            if self.show_settings { 300.0 } else { 34.0 },
+            if self.show_settings { 320.0 } else { 34.0 },
         )));
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.spacing_mut().item_spacing = egui::vec2(3.0, 2.0);
@@ -341,6 +343,7 @@ impl eframe::App for App {
             if self.show_settings {
                 ui.separator();
                 ui.checkbox(&mut self.auto_save, "战斗结束自动保存");
+                ui.checkbox(&mut self.record_dodges, "记录手动闪避（不含 AI）");
                 ui.label("游戏目录（留空自动检测，修改后重新抓包）");
                 ui.text_edit_singleline(&mut self.game_dir);
                 ui.label("CSV 保存目录");
@@ -370,26 +373,6 @@ impl Drop for App {
     }
 }
 
-fn classify(skill: &str) -> Option<&str> {
-    if skill.is_empty() {
-        return None;
-    }
-    Some(if skill.contains("ultimate") {
-        "大招"
-    } else if skill.contains("combo") {
-        "连携"
-    } else if skill.contains("normal_skill") {
-        "战技"
-    } else if skill.contains("dodge") {
-        "闪避"
-    } else if skill.contains("power_attack") {
-        "重击"
-    } else if skill.contains("attack") {
-        return None;
-    } else {
-        "其他"
-    })
-}
 fn format_time(t: f64) -> String {
     format!("{}:{:06.3}", (t / 60.0).floor() as i64, t % 60.0)
 }
@@ -448,7 +431,7 @@ mod tests {
     fn battle(app: &mut App) {
         app.consume(json!({"type":"capture_session", "session_id":"one"}));
         app.consume(json!({"type":"SC_SELF_SCENE_INFO", "char_list":[{"battle_inst_id":42,"display_name":"提弗洛斯"}], "dungeon":{"challenge_expire_ts":"1800000420"}}));
-        app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":7, "template_str_id":"chr_0042_normal_skill"}));
+        app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":7, "action":"战技"}));
         app.consume(json!({"type":"BattleOpModifyBattleState", "is_in_battle":true, "timestamp_ms":1800000000000_i64}));
         app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7, "timestamp_ms":1800000001250_i64}));
     }
@@ -476,6 +459,7 @@ mod tests {
         let row = reader.records().next().unwrap().unwrap();
         assert_eq!(&row[0], "提弗洛斯");
         assert_eq!(&row[2], "6:58.750");
+        assert_eq!(&row[3], "");
         fs::remove_file(files[0].path()).unwrap();
         fs::remove_dir(dir).unwrap();
     }
@@ -500,12 +484,18 @@ mod tests {
         app.auto_save = false;
         battle(&mut app);
         for (inst, skill) in [
-            (8, "chr_0036_jsspsi_attack1"),
-            (9, "chr_0036_jsspsi_combo_skill"),
-            (10, "chr_0036_jsspsi_ultimate_skill"),
-            (11, "chr_0036_jsspsi_power_attack"),
+            (8, None),
+            (9, Some("连携")),
+            (10, Some("大招")),
+            (11, Some("重击")),
+            (12, Some("处决")),
+            (13, Some("战技II")),
+            (14, Some("战技III")),
+            (15, Some("闪避")),
         ] {
-            app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":inst, "template_str_id":skill}));
+            app.consume(
+                json!({"type":"BattleOpSkillAttach", "skill_inst_id":inst, "action":skill}),
+            );
             app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":inst, "timestamp_ms":1800000002000_i64}));
         }
         let dir = std::env::temp_dir().join(format!(
@@ -524,9 +514,16 @@ mod tests {
             .collect();
         assert_eq!(
             rows.iter().map(|r| &r[1]).collect::<Vec<_>>(),
-            ["战技", "连携", "大招", "重击"]
+            ["战技", "连携", "大招", "重击", "处决", "战技II", "战技III"]
         );
-        assert!(rows.iter().all(|row| !row[3].ends_with("_attack1")));
+        assert!(rows.iter().all(|row| row[3].is_empty()));
+        app.record_dodges = true;
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":15}));
+        assert_eq!(app.actions.last().unwrap().action, "闪避");
+        app.consume(json!({"type":"BattleOpSkillAttach", "skill_inst_id":15, "action":null}));
+        let count = app.actions.len();
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":15}));
+        assert_eq!(app.actions.len(), count);
         fs::remove_file(path).unwrap();
         fs::remove_dir(dir).unwrap();
     }

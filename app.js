@@ -13,7 +13,7 @@ const operators = {
   '提弗洛斯': { file: 'typhoea', attack: 'attack-funnel', elements: { '普攻': '自然', '重击': '自然', '战技': '自然', '连携': '自然', '大招': '自然' } }
 };
 const defaultParty = ['提弗洛斯', '祀', '诀', '赛希'];
-const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '切人', '其他', '闪避']);
+const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '处决', '切人', '其他', '闪避']);
 const imageTasks = new Map(), images = new Map();
 const aliasesTask = fetch('assets/aliases.toml').then(response => {
   if (!response.ok) throw new Error('无法加载干员别名');
@@ -49,7 +49,7 @@ function parseDocument(source, configSource) {
     if (!operators[operator]) throw new Error(`第 ${index + 2} 行：未知干员 ${operator || '（空）'}`);
     if (!slots.includes(operator)) throw new Error(`第 ${index + 2} 行：${operator} 不在 operators 中`);
     if (!actions.has(action)) throw new Error(`第 ${index + 2} 行：未知动作 ${action || '（空）'}`);
-    if (action === '其他' && (!note || [...note].length > 7)) throw new Error(`第 ${index + 2} 行：其他动作的备注需要 1–7 个字`);
+    if (action === '其他' && [...note].length > 7) throw new Error(`第 ${index + 2} 行：其他动作的备注最多 7 个字`);
     if ([...note].length > 36) throw new Error(`第 ${index + 2} 行：备注最多 36 个字`);
     let time = previous;
     if (rawTime) {
@@ -61,7 +61,7 @@ function parseDocument(source, configSource) {
     } else if (index === 0) {
       throw new Error('第 2 行：首条动作必须填写时间');
     }
-    return { operator, action, time, position: time, specifiedTime: Boolean(rawTime), note, slot: slots.indexOf(operator) + 1, element: operators[operator].elements[action] || null };
+    return { operator, action, time, position: time, specifiedTime: Boolean(rawTime), note, slot: slots.indexOf(operator) + 1, element: operators[operator].elements[action === '处决' ? '重击' : action] || null };
   });
   if (!steps.length) throw new Error('至少需要一条动作');
   return { title, rowSeconds, timeline: timeline.trim(), steps };
@@ -69,7 +69,7 @@ function parseDocument(source, configSource) {
 
 function assetName(step) {
   const op = operators[step.operator];
-  if (step.action === '普攻' || step.action === '重击') return op.attack;
+  if (step.action === '普攻' || step.action === '重击' || step.action === '处决') return op.attack;
   if (step.operator === '祀' && step.action === '战技II') return 'si-skill-ii';
   if (step.operator === '祀' && step.action === '战技III') return 'si-skill-iii';
   const type = { '战技': 'skill', '战技II': 'skill', '战技III': 'skill', '连携': 'combo', '大招': 'ultimate' }[step.action];
@@ -174,10 +174,10 @@ function drawNode(node, y, showTime) {
     }
     else text(node.action === '切人' ? '⇄' : '闪', cx, cy + 11, '800 31px Arial, "PingFang SC"', '#f4f5ee', 'center');
   }
-  const label = node.action === '其他' ? node.note : node.action;
+  const label = node.action === '其他' ? node.note || node.action : node.action;
   text(label, x, y + 110, '800 30px Arial, "PingFang SC", sans-serif', '#f4f5ee', 'center');
   const keyX = x + ctx.measureText(label).width / 2 + 18, keyY = y + 102;
-  if (node.action === '普攻' || node.action === '重击' || node.action === '闪避') {
+  if (node.action === '普攻' || node.action === '重击' || node.action === '处决' || node.action === '闪避') {
     const mouse = node.action === '闪避' ? 'mouse-right' : 'mouse-left';
     ctx.drawImage(images.get(mouse), keyX - 12, keyY - 12, 24, 24);
   } else if (node.action === '大招') {
@@ -252,7 +252,7 @@ async function render() {
     status.textContent = '正在加载本地图片…'; status.classList.remove('error');
     const names = new Set(steps.flatMap(step => [`${operators[step.operator].file}-portrait`, assetName(step)].filter(Boolean)));
     names.add('endfield-logo');
-    if (steps.some(step => ['普攻', '重击'].includes(step.action))) names.add('mouse-left');
+    if (steps.some(step => ['普攻', '重击', '处决'].includes(step.action))) names.add('mouse-left');
     if (steps.some(step => step.action === '闪避')) names.add('mouse-right');
     colors = await colorsTask;
     await Promise.all([...names].map(async name => images.set(name, await loadImage(name))));
