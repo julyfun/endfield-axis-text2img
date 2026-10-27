@@ -32,7 +32,7 @@ let aliases = {}, colors = {};
 
 function showError(error) {
   const message = error.reason || error.message || String(error);
-  status.textContent = message; status.classList.add('error');
+  if (status) { status.textContent = message; status.classList.add('error'); }
   if (errorDetails) { errorDetails.hidden = false; errorDetails.textContent = error.stack || message; }
 }
 
