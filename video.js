@@ -33,7 +33,11 @@ async function prepareVideo(source, configSource) {
     const timeGap = timeWorld - previousWorld;
     const boundedGap = Math.min(maxGroupGap, Math.max(minGroupGap, timeGap));
     group.world = groupIndex ? previousWorld + previousHalf + group.halfWidth + boundedGap : timeWorld;
-    group.steps.forEach((step, i) => { step.groupIndex = groupIndex; step.world = group.world + (i - (group.steps.length - 1) / 2) * nodeSpacing; });
+    group.steps.forEach((step, i) => {
+      step.groupIndex = groupIndex;
+      step.trigger = Number((offset + steps[0].time - step.time).toFixed(6));
+      step.world = group.world + (i - (group.steps.length - 1) / 2) * nodeSpacing;
+    });
     previousWorld = group.world;
     previousHalf = group.halfWidth;
     triggers.push(group.trigger);
@@ -90,17 +94,17 @@ function drawVideoFrame(time) {
     ctx.restore();
   });
   if (active >= 0) {
-    const elapsed = time - triggers[active], pulseDuration = renderStyle.pulse_duration;
-    if (elapsed >= 0 && elapsed < pulseDuration) {
-      const progress = elapsed / pulseDuration;
-      groups[active].steps.forEach(step => {
-        const x = viewWidth / 2 + step.world - camera;
-        if (x < -100 || x > viewWidth + 100) return;
-        ctx.strokeStyle = colorWithAlpha(renderStyle.pulse_color, 1 - progress);
-        ctx.lineWidth = renderStyle.pulse_start_width + progress * (renderStyle.pulse_end_width - renderStyle.pulse_start_width);
-        ctx.beginPath(); ctx.arc(x, y, renderStyle.pulse_start_radius + progress * (renderStyle.pulse_end_radius - renderStyle.pulse_start_radius), 0, Math.PI * 2); ctx.stroke();
-      });
-    }
+    const pulseDuration = renderStyle.pulse_duration;
+    groups[active].steps.forEach(step => {
+      const elapsed = time - step.trigger;
+      if (elapsed < 0 || elapsed >= pulseDuration) return;
+      const stepProgress = elapsed / pulseDuration;
+      const x = viewWidth / 2 + step.world - camera;
+      if (x < -100 || x > viewWidth + 100) return;
+      ctx.strokeStyle = colorWithAlpha(renderStyle.pulse_color, 1 - stepProgress);
+      ctx.lineWidth = renderStyle.pulse_start_width + stepProgress * (renderStyle.pulse_end_width - renderStyle.pulse_start_width);
+      ctx.beginPath(); ctx.arc(x, y, renderStyle.pulse_start_radius + stepProgress * (renderStyle.pulse_end_radius - renderStyle.pulse_start_radius), 0, Math.PI * 2); ctx.stroke();
+    });
   }
   ctx.restore();
   return { active, focus, camera };
