@@ -206,7 +206,8 @@ function draw({ title, rowSeconds, timeline, steps }) {
   text(title, 72, 214, '900 88px Arial, "PingFang SC", sans-serif');
   line(75, 251, width - 75, 251, '#dce83d', 3);
   text(`${String(steps.length).padStart(2, '0')} ACTIONS`, 75, 288, '800 23px Arial');
-  text(`${timeLabel(steps[0].position)}  →  ${timeLabel(steps.at(-1).position)}`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
+  const duration = steps[0].position - steps.at(-1).position;
+  text(`${Number(duration.toFixed(3))} SEC`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
   let previous = null;
   const shownTimes = new Set();
   lanes.forEach((lane, row) => {
