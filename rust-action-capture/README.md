@@ -13,7 +13,7 @@ operator,action,time,note
 
 ## 使用
 
-安装 [Npcap](https://npcap.com/#download)，然后运行完整发行目录中的 `endfield-action-capture.exe`。程序启动时自动开始抓包，也可以通过「停止／抓包」按钮控制。
+安装 [Npcap](https://npcap.com/#download)，然后运行完整发行目录中的 `endfield-action-capture.exe`。程序启动时自动开始抓包，也可以通过「停止／抓包」按钮控制。界面采用深色紧凑工具栏；展开「设置」可实时切换窗口置顶，保存后重启仍生效。置顶、自动保存、手动闪避和目录设置保存在 `%LOCALAPPDATA%\EndfieldActionCapture\settings.json`。
 
 先开始抓包，再启动游戏，以捕获登录握手。如果游戏已经运行，程序会提示重启游戏。若 Npcap 安装时选择了仅管理员可用，则需要以管理员身份启动本程序。缺少驱动、游戏目录或解密依赖时，界面会显示错误；详细日志位于 `%LOCALAPPDATA%\EndfieldActionCapture\capture.log`，本程序的抓包事件日志位于同目录的 `logs` 子目录。
 

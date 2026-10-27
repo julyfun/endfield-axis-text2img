@@ -34,6 +34,7 @@ struct App {
     auto_save: bool,
     record_dodges: bool,
     show_settings: bool,
+    always_on_top: bool,
 }
 
 impl Default for App {
@@ -58,6 +59,7 @@ impl Default for App {
             auto_save: true,
             record_dodges: false,
             show_settings: false,
+            always_on_top: true,
         }
     }
 }
@@ -305,82 +307,191 @@ impl eframe::App for App {
         self.poll();
         ctx.request_repaint_after(Duration::from_millis(100));
         ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
-            600.0,
-            if self.show_settings { 320.0 } else { 34.0 },
+            640.0,
+            if self.show_settings { 440.0 } else { 56.0 },
         )));
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(3.0, 2.0);
-            ui.horizontal(|ui| {
-                let drag = ui
-                    .add_sized(
-                        [365.0, 18.0],
-                        egui::Label::new(format!(
-                            "{} · {} 包 · {} 动作",
-                            self.status,
-                            self.packets,
-                            self.actions.len()
-                        ))
-                        .truncate()
-                        .sense(egui::Sense::drag()),
-                    )
-                    .on_hover_text(&self.status);
-                if drag.dragged() {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
-                }
-                if self.capture.is_some() {
-                    if ui.small_button("停止").clicked() {
-                        self.capture.as_mut().unwrap().stop();
-                        self.status = "正在停止抓包".into();
-                    }
-                } else if ui.small_button("抓包").clicked() {
-                    self.start();
-                }
-                if ui.small_button("存").clicked() {
-                    self.status = match self.save_csv() {
-                        Ok(Some(_)) => {
-                            self.saved_actions = self.actions.len();
-                            "CSV 已保存".into()
-                        }
-                        Ok(None) => "没有动作记录，未保存".into(),
-                        Err(e) => format!("CSV 保存失败：{e}"),
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::none()
+                    .fill(egui::Color32::from_rgb(19, 22, 28))
+                    .inner_margin(12.0),
+            )
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    let color = if self.status.contains("失败") {
+                        egui::Color32::from_rgb(248, 113, 113)
+                    } else if self.capture.is_some() {
+                        egui::Color32::from_rgb(94, 218, 174)
+                    } else {
+                        egui::Color32::from_gray(120)
                     };
-                }
-                if ui
-                    .small_button(if self.show_settings { "收" } else { "设置" })
-                    .clicked()
-                {
-                    self.show_settings = !self.show_settings;
-                }
-                if ui.small_button("×").clicked() {
-                    self.finish();
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
-            });
-            if self.show_settings {
-                ui.separator();
-                ui.checkbox(&mut self.auto_save, "战斗结束自动保存");
-                ui.checkbox(&mut self.record_dodges, "记录手动闪避（不含 AI）");
-                ui.label("游戏目录（留空自动检测，修改后重新抓包）");
-                ui.text_edit_singleline(&mut self.game_dir);
-                ui.label("CSV 保存目录");
-                ui.text_edit_singleline(&mut self.csv_dir);
-                ui.label("先开始抓包，再启动游戏；已进入游戏时请重启游戏。");
-                ui.label("抓包需要安装 Npcap；若驱动限制权限，请以管理员身份运行。");
-                egui::ScrollArea::vertical()
-                    .max_height(110.0)
-                    .show(ui, |ui| {
-                        for a in &self.actions {
-                            ui.label(format!(
-                                "{} {} {}",
-                                a.operator,
-                                a.action,
-                                format_time(a.time)
-                            ));
+                    ui.colored_label(color, "●");
+                    let drag = ui
+                        .add_sized(
+                            [265.0, 30.0],
+                            egui::Label::new(&self.status)
+                                .truncate()
+                                .sense(egui::Sense::drag()),
+                        )
+                        .on_hover_text(format!(
+                            "{} · {} 包 · 拖动移动窗口",
+                            self.status, self.packets
+                        ));
+                    if drag.dragged() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
+                    }
+                    ui.label(egui::RichText::new(format!("{} 动作", self.actions.len())).weak());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("×").on_hover_text("退出").clicked() {
+                            self.finish();
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+                        if ui
+                            .button(if self.show_settings {
+                                "收起"
+                            } else {
+                                "设置"
+                            })
+                            .clicked()
+                        {
+                            self.show_settings = !self.show_settings;
+                        }
+                        if ui.button("保存").clicked() {
+                            self.status = match self.save_csv() {
+                                Ok(Some(_)) => {
+                                    self.saved_actions = self.actions.len();
+                                    "CSV 已保存".into()
+                                }
+                                Ok(None) => "没有动作记录，未保存".into(),
+                                Err(e) => format!("CSV 保存失败：{e}"),
+                            };
+                        }
+                        if self.capture.is_some() {
+                            if ui.button("停止").clicked() {
+                                self.capture.as_mut().unwrap().stop();
+                                self.status = "正在停止抓包".into();
+                            }
+                        } else if ui.button("抓包").clicked() {
+                            self.start();
                         }
                     });
-            }
-        });
+                });
+                if self.show_settings {
+                    ui.add_space(10.0);
+                    ui.separator();
+                    ui.add_space(8.0);
+                    let mut changed = false;
+                    ui.horizontal(|ui| {
+                        changed |= ui.checkbox(&mut self.always_on_top, "窗口置顶").changed();
+                        changed |= ui
+                            .checkbox(&mut self.auto_save, "战斗结束自动保存")
+                            .changed();
+                        changed |= ui
+                            .checkbox(&mut self.record_dodges, "记录手动闪避")
+                            .on_hover_text("AI 闪避始终忽略")
+                            .changed();
+                    });
+                    if changed {
+                        self.apply_window_level(ctx);
+                    }
+                    ui.add_space(8.0);
+                    ui.label(egui::RichText::new("游戏目录").weak());
+                    changed |= ui
+                        .add(
+                            egui::TextEdit::singleline(&mut self.game_dir)
+                                .hint_text("留空自动检测 · 修改后重新抓包")
+                                .desired_width(f32::INFINITY),
+                        )
+                        .changed();
+                    ui.label(egui::RichText::new("保存位置").weak());
+                    changed |= ui
+                        .add(
+                            egui::TextEdit::singleline(&mut self.csv_dir)
+                                .desired_width(f32::INFINITY),
+                        )
+                        .changed();
+                    if changed {
+                        self.save_settings();
+                    }
+                    ui.add_space(8.0);
+                    ui.label(
+                        egui::RichText::new("先开始抓包，再启动游戏。已进入游戏时需重启游戏。")
+                            .small()
+                            .weak(),
+                    );
+                    ui.add_space(8.0);
+                    ui.separator();
+                    ui.add_space(6.0);
+                    ui.label(egui::RichText::new("最近动作").small().weak());
+                    egui::ScrollArea::vertical()
+                        .max_height(110.0)
+                        .stick_to_bottom(true)
+                        .show(ui, |ui| {
+                            if self.actions.is_empty() {
+                                ui.label(egui::RichText::new("等待战斗动作…").weak());
+                            }
+                            for a in &self.actions {
+                                ui.horizontal(|ui| {
+                                    ui.label(
+                                        egui::RichText::new(format_time(a.time)).monospace().weak(),
+                                    );
+                                    ui.label(&a.operator);
+                                    ui.label(
+                                        egui::RichText::new(&a.action)
+                                            .color(egui::Color32::from_rgb(94, 218, 174)),
+                                    );
+                                });
+                            }
+                        });
+                }
+            });
     }
+}
+
+impl App {
+    fn apply_window_level(&self, ctx: &egui::Context) {
+        ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(if self.always_on_top {
+            egui::WindowLevel::AlwaysOnTop
+        } else {
+            egui::WindowLevel::Normal
+        }));
+    }
+
+    fn save_settings(&mut self) {
+        let path = settings_path();
+        let settings = serde_json::json!({"always_on_top": self.always_on_top,
+            "auto_save": self.auto_save, "record_dodges": self.record_dodges,
+            "game_dir": self.game_dir, "csv_dir": self.csv_dir});
+        if let Err(e) = fs::create_dir_all(path.parent().unwrap())
+            .and_then(|_| fs::write(path, settings.to_string()))
+        {
+            self.status = format!("设置保存失败：{e}");
+        }
+    }
+
+    fn load_settings(&mut self) {
+        let Some(settings) = fs::read(settings_path())
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+        else {
+            return;
+        };
+        self.always_on_top = settings["always_on_top"].as_bool().unwrap_or(true);
+        self.auto_save = settings["auto_save"].as_bool().unwrap_or(true);
+        self.record_dodges = settings["record_dodges"].as_bool().unwrap_or(false);
+        if let Some(dir) = settings["game_dir"].as_str() {
+            self.game_dir = dir.into();
+        }
+        if let Some(dir) = settings["csv_dir"].as_str() {
+            self.csv_dir = dir.into();
+        }
+    }
+}
+
+fn settings_path() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("EndfieldActionCapture/settings.json")
 }
 
 impl Drop for App {
@@ -396,11 +507,10 @@ fn format_time(t: f64) -> String {
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([600.0, 34.0])
-            .with_min_inner_size([300.0, 28.0])
+            .with_inner_size([640.0, 56.0])
+            .with_min_inner_size([640.0, 56.0])
             .with_resizable(false)
-            .with_decorations(false)
-            .with_always_on_top(),
+            .with_decorations(false),
         ..Default::default()
     };
     eframe::run_native(
@@ -408,18 +518,45 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(|cc| {
             install_cjk_font(&cc.egui_ctx);
+            install_theme(&cc.egui_ctx);
             let mut app = App::default();
+            app.load_settings();
+            app.apply_window_level(&cc.egui_ctx);
             app.start();
             Ok(Box::new(app))
         }),
     )
 }
 
+fn install_theme(ctx: &egui::Context) {
+    let mut style = (*ctx.style()).clone();
+    style.visuals = egui::Visuals::dark();
+    style.visuals.override_text_color = Some(egui::Color32::from_rgb(220, 225, 233));
+    style.visuals.panel_fill = egui::Color32::from_rgb(19, 22, 28);
+    style.visuals.extreme_bg_color = egui::Color32::from_rgb(14, 17, 22);
+    style.visuals.selection.bg_fill = egui::Color32::from_rgb(42, 91, 78);
+    style.visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(32, 37, 46);
+    style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(45, 53, 65);
+    style.visuals.widgets.active.bg_fill = egui::Color32::from_rgb(42, 91, 78);
+    for widget in [
+        &mut style.visuals.widgets.inactive,
+        &mut style.visuals.widgets.hovered,
+        &mut style.visuals.widgets.active,
+    ] {
+        widget.rounding = egui::Rounding::same(6.0);
+        widget.bg_stroke = egui::Stroke::NONE;
+    }
+    style.spacing.item_spacing = egui::vec2(8.0, 7.0);
+    style.spacing.button_padding = egui::vec2(10.0, 6.0);
+    style.spacing.interact_size.y = 28.0;
+    ctx.set_style(style);
+}
+
 fn install_cjk_font(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     for path in [
-        r"C:\Windows\Fonts\simhei.ttf",
         r"C:\Windows\Fonts\msyh.ttc",
+        r"C:\Windows\Fonts\simhei.ttf",
         r"C:\Windows\Fonts\simsun.ttc",
     ] {
         if let Ok(bytes) = fs::read(path) {
