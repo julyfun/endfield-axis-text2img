@@ -55,7 +55,7 @@ def write_maps(core: Path, output: Path):
     rules = ActionRules(skills.values())
     output.mkdir(parents=True, exist_ok=True)
     metadata = {
-        "source": "EndfieldLogsClient 3.0.12 / data/local_tables/NumIdStrTable.json",
+        "source": "core/data/local_tables/NumIdStrTable.json",
         "date": "2026-10-28",
         "rules": {"note": "always empty", "dodge": "opt-in; AI always excluded",
                   "common": "excluded except manual dodge", "attack": "only final numbered segment = 重击",

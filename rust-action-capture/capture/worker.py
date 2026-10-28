@@ -17,9 +17,9 @@ def emit(event: dict) -> None:
     print(json.dumps(event, ensure_ascii=False), flush=True)
 
 
-def configure_core(root: Path | None) -> None:
-    if root is not None:
-        sys.path.insert(0, str(root / "src"))
+def configure_core() -> None:
+    if not getattr(sys, "frozen", False):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core/src"))
     # Keep the DLL search handle alive for the duration of capture.
     npcap = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32/Npcap"
     if npcap.is_dir():
@@ -73,7 +73,8 @@ def verify_protocols() -> None:
     required = (
         "CS_BATTLE_OP", "CS_PING", "SC_PING", "SC_SELF_SCENE_INFO",
         "SC_GAME_MECHANICS_SYNC_CHALLENGE_START", "SC_GAME_MECHANICS_SYNC_CHALLENGE_COMPLETE",
-        "SC_CHAR_BAG_SET_TEAM_LEADER",
+        "SC_CHAR_BAG_SET_TEAM_LEADER", "SC_ATTACH_SERVER_SKILL",
+        "SC_DETACH_SERVER_SKILL", "SC_UPDATE_SERVER_SKILL", "CS_MERGE_MSG",
     )
     missing = [name for name in required if registry.load_message_class(name) is None]
     if missing:
@@ -152,7 +153,6 @@ async def capture(args) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--core-root", type=Path)
     parser.add_argument("--game-dir", type=Path)
     parser.add_argument("--log-dir", type=Path, required=True)
     parser.add_argument("--check", action="store_true")
@@ -161,7 +161,7 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
     try:
-        configure_core(args.core_root)
+        configure_core()
         verify_protocols()
         if args.check_protocols:
             emit({"type": "capture_status", "state": "protocols_ready"})

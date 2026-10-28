@@ -1,5 +1,5 @@
 {
-  "source": "EndfieldLogsClient 3.0.12 / data/local_tables/NumIdStrTable.json",
+  "source": "core/data/local_tables/NumIdStrTable.json",
   "date": "2026-10-28",
   "rules": {
     "note": "always empty",

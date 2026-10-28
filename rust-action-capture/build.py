@@ -9,11 +9,10 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--core-root", type=Path, required=True, help="EndfieldLogsClient/_internal")
     parser.add_argument("--toolchain", help="Optional rustup toolchain")
     args = parser.parse_args()
     project = Path(__file__).resolve().parent
-    core = args.core_root.resolve()
+    core = project / "core"
     sys.path.insert(0, str(project / "capture"))
     from skill_actions import write_maps
     write_maps(core, project / "data")
@@ -54,6 +53,7 @@ def main():
     shutil.copy2(target / "release/endfield-action-capture.exe", output)
     shutil.copytree(work / "dist/endfield-capture", output / "capture", dirs_exist_ok=True)
     shutil.copy2(project / "README.md", output)
+    shutil.copy2(core / "LICENSE", output / "CAPTURE-CORE-LICENSE")
     shutil.copytree(project / "data", output / "data", dirs_exist_ok=True)
     print(f"Portable application: {output}")
 

@@ -1,10 +1,9 @@
-"""Integration tests against the capture core selected by ENDFIELD_CAPTURE_CORE."""
+"""Integration tests against the repository capture core."""
 import argparse
 import asyncio
 import contextlib
 import io
 import json
-import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -14,7 +13,7 @@ from unittest.mock import Mock, patch
 
 import worker
 
-worker.configure_core(Path(os.environ["ENDFIELD_CAPTURE_CORE"]))
+worker.configure_core()
 from endfield_pcap.models import RuntimeMetrics, SquadMember
 from endfield_pcap.packet_resolver import PacketResolver
 from endfield_pcap.proto_generated.CS_BATTLE_OP_pb2 import CS_BATTLE_OP
@@ -24,6 +23,37 @@ from endfield_pcap.service import SessionPipeline
 
 
 class WorkerTests(unittest.TestCase):
+    def test_bundled_resources_and_every_registered_message_load_without_external_client(self):
+        from endfield_pcap.runtime_paths import bundle_root
+        from endfield_pcap.message_registry import MessageRegistry
+        root = Path(__file__).resolve().parents[1] / "core"
+        self.assertEqual(bundle_root(), root)
+        worker.verify_protocols()
+        registry = MessageRegistry(root / "data")
+        for direction, mapping in registry._maps.items():
+            for msg_id, name in mapping.items():
+                if registry.should_decode_message(direction, msg_id):
+                    with self.subTest(message=name):
+                        self.assertIsNotNone(registry.load_message_class(name))
+
+    def test_server_skill_update_messages_reach_action_sink(self):
+        from endfield_pcap.proto_generated.SC_ATTACH_SERVER_SKILL_pb2 import SC_ATTACH_SERVER_SKILL
+        message = SC_ATTACH_SERVER_SKILL()
+        skill = message.skills.add()
+        skill.inst_id = 7
+        skill.skill_id.int_id = 3297
+        decoded = SC_ATTACH_SERVER_SKILL.FromString(message.SerializeToString())
+        pipeline = SessionPipeline.__new__(SessionPipeline)
+        pipeline.session_id = "server-update"
+        row = pipeline._server_skill_row(42, decoded.skills[0])
+        sink = worker.EventSink(PacketResolver())
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            sink({"type": "SC_ATTACH_SERVER_SKILL", "session_id": "server-update", "skills": [row]})
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(events[-1]["template_str_id"], "chr_0036_jsspsi_normal_skill")
+        self.assertEqual(events[-1]["action"], "战技")
+
     def test_server_leader_switch_updates_battle_owner_before_next_cast(self):
         pipeline_class = worker.leader_tracking_pipeline()
         pipeline = pipeline_class.__new__(pipeline_class)

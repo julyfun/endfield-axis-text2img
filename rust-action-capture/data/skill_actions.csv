@@ -640,6 +640,7 @@ numeric_id,skill_id,action
 2706,chr_0027_tangtang_passive_0,其他
 2753,chr_0030_zhuangfy_talent2,其他
 2793,chr_0031_mifu_ultimate_skill,大招
+2796,chr_0033_camille_power_attack_test,
 2830,chr_0030_zhuangfy_attack1_ult_1_abilityrange,
 2831,chr_0030_zhuangfy_attack1_ult_2_abilityrange,
 2832,chr_0030_zhuangfy_attack1_ult_3_abilityrange,
@@ -786,6 +787,7 @@ numeric_id,skill_id,action
 3681,chr_0037_minghe_normalskill_2,战技II
 3711,chr_0038_purrche_ult_skill_normal_blackhole_projhit,其他
 3712,chr_0038_purrche_ult_skill_normal_bomb_projhit,其他
+3720,chr_0035_liino_talent,其他
 3722,chr_0036_jsspsi_ultimate_skill,大招
 3723,chr_0037_minghe_combo_skill,连携
 3724,chr_0037_minghe_ultimate_skill,大招
@@ -808,6 +810,7 @@ numeric_id,skill_id,action
 3831,chr_0034_typhoea_attack4_02_projhit,
 3971,chr_0032_lizhiyan_combo_skill_abilityentity_death_move,连携
 3978,chr_0035_liino_ultimate_skill_projhit_abilityentity,大招
+4008,chr_0035_liino_ultimate_skill_abilityentity,大招
 4056,chr_0037_minghe_specialfracture_thunderskill,其他
 4058,chr_0002_endminm_attack1_skin_ink,
 4059,chr_0002_endminm_attack2_skin_ink,

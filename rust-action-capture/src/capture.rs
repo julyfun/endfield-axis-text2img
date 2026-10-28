@@ -33,23 +33,12 @@ impl Capture {
         let mut command = if exe.is_file() {
             Command::new(exe)
         } else {
-            let core = std::env::var_os("ENDFIELD_CAPTURE_CORE")
-                .map(PathBuf::from)
-                .or_else(find_core)
-                .ok_or_else(|| {
-                    io::Error::new(
-                        io::ErrorKind::NotFound,
-                        "缺少抓包组件，请使用完整发行包或设置 ENDFIELD_CAPTURE_CORE",
-                    )
-                })?;
             let mut command = Command::new(
                 std::env::var_os("ENDFIELD_CAPTURE_PYTHON").unwrap_or_else(|| "python".into()),
             );
             command
                 .arg("-u")
-                .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/capture/worker.py"))
-                .arg("--core-root")
-                .arg(core);
+                .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/capture/worker.py"));
             command
         };
         command.arg("--log-dir").arg(data.join("logs"));
@@ -118,16 +107,4 @@ impl Drop for Capture {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
-}
-
-fn find_core() -> Option<PathBuf> {
-    let documents = dirs::document_dir()?;
-    let mut roots: Vec<_> = fs::read_dir(documents)
-        .ok()?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path().join("EndfieldLogsClient/_internal"))
-        .filter(|path| path.join("src/endfield_pcap/service.py").is_file())
-        .collect();
-    roots.sort();
-    roots.pop()
 }
