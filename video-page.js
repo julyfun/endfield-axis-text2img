@@ -89,7 +89,7 @@ videoPlay.addEventListener('click', () => {
   videoPlaying = !videoPlaying; videoPlay.textContent = videoPlaying ? '暂停' : '播放';
   tick.last = 0; if (videoPlaying) videoFrame = requestAnimationFrame(tick); else cancelAnimationFrame(videoFrame);
 });
-videoReset.addEventListener('click', () => { videoPlaying = false; videoPlay.textContent = '播放'; tick.last = 0; videoTime = 0; showVideoFrame(); });
+videoReset.addEventListener('click', () => { videoPlaying = false; videoPlay.textContent = '播放'; tick.last = 0; cancelAnimationFrame(videoFrame); videoTime = 0; loadVideo(); });
 videoProgress.addEventListener('input', () => { videoPlaying = false; videoPlay.textContent = '播放'; videoTime = Number(videoProgress.value); showVideoFrame(); });
 videoExport.addEventListener('click', () => exportVideo().catch(error => { videoStatus.textContent = error.message; videoStatus.classList.add('error'); videoErrorDetails.hidden = false; videoErrorDetails.textContent = error.stack || error.message; videoExport.disabled = false; }));
 document.addEventListener('editor-file-loaded', () => loadVideo());
