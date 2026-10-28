@@ -74,8 +74,6 @@ function drawVideoFrame(time) {
   const y = viewHeight - renderStyle.axis_y_offset;
   ctx.clearRect(0, 0, width, height);
   ctx.save(); ctx.scale(scale, scale);
-  ctx.fillStyle = renderStyle.background;
-  ctx.fillRect(0, y - 96, viewWidth, viewHeight - y + 96);
   ctx.save(); ctx.globalAlpha = renderStyle.connector_alpha;
   for (let i = 1; i < steps.length; i++) {
     const x1 = viewWidth / 2 + steps[i - 1].world - camera + 78;

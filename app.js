@@ -128,8 +128,15 @@ function loadImage(name) {
 }
 
 function text(value, x, y, font, color = '#f4f5ee', align = 'left') {
+  ctx.save();
   ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align;
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = renderStyle.text_stroke_color;
+  ctx.lineWidth = renderStyle.text_stroke_width;
+  ctx.lineJoin = 'round';
+  if (renderStyle.text_stroke_width > 0) ctx.strokeText(value, x, y);
   ctx.fillText(value, x, y);
+  ctx.restore();
 }
 
 function line(x1, y1, x2, y2, color = '#66706b', width = 2) {
@@ -208,7 +215,6 @@ function drawKey(node, x, y) {
   const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : ['战技', '战技II', '战技III'].includes(node.action) ? String(node.slot) : '';
   const mouse = node.action === '闪避' ? 'mouse-right' : ['普攻', '重击', '处决'].includes(node.action) ? 'mouse-left' : null;
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, .85)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = renderStyle.key_shadow_x; ctx.shadowOffsetY = renderStyle.key_shadow_y;
   if (mouse) ctx.drawImage(images.get(mouse), x - 18, y - 18, 36, 36);
   else if (node.action === '大招') {
     const size = parseFloat(renderStyle.key_font.match(/[\d.]+px/)[0]);
@@ -218,7 +224,6 @@ function drawKey(node, x, y) {
     const digit = String(node.slot);
     ctx.font = holdFont;
     const bounds = ctx.measureText(digit);
-    ctx.shadowColor = 'transparent';
     text(digit, x, y + (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2, holdFont, renderStyle.key_text_color, 'center');
   } else if (key) text(key, x, y + 11, renderStyle.key_font, renderStyle.key_text_color, 'center');
   ctx.restore();
@@ -244,7 +249,6 @@ function drawNode(node, y, showTime, direction = 1, showNote = true) {
     ctx.beginPath(); ctx.arc(cx, cy, renderStyle.badge_radius, 0, Math.PI * 2); ctx.stroke();
     if (badge) {
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, renderStyle.badge_inner_radius, 0, Math.PI * 2); ctx.clip();
-      ctx.shadowColor = 'rgba(0, 0, 0, .85)'; ctx.shadowBlur = 3; ctx.shadowOffsetY = 3;
       ctx.drawImage(images.get(badge), cx - renderStyle.badge_image_size / 2, cy - renderStyle.badge_image_size / 2, renderStyle.badge_image_size, renderStyle.badge_image_size);
       ctx.restore();
     }
@@ -256,7 +260,7 @@ function drawNode(node, y, showTime, direction = 1, showNote = true) {
   text(label, x, y - renderStyle.label_y_offset, renderStyle.label_font, renderStyle.label_color, 'center');
   if (showTime) {
     const timeX = direction > 0 ? x - labelWidth / 2 - 12 : x + labelWidth / 2 + 12;
-    text(timeLabel(node.time), timeX, y - renderStyle.label_y_offset, renderStyle.time_font, renderStyle.ultimate_accent, direction > 0 ? 'right' : 'left');
+    text(timeLabel(node.time), timeX, y - renderStyle.label_y_offset, renderStyle.time_font, renderStyle.time_color, direction > 0 ? 'right' : 'left');
   }
   drawKey(node, x, y + 98);
   if (showNote) {
@@ -283,12 +287,12 @@ function draw({ title, rowSeconds, timeline, steps, style }) {
   for (let x = 70; x < width; x += renderStyle.grid_step) line(x, 0, x, height, '#ffffff0b', 1);
   for (let y = 0; y < height; y += renderStyle.grid_step) line(0, y, width, y, '#ffffff0b', 1);
   ctx.fillStyle = '#dce83d'; ctx.fillRect(0, 0, 15, 240); ctx.fillRect(75, 69, 64, 9);
-  text('ENDFIELD / TACTICAL AXIS', 75, 111, '800 22px Arial', '#dce83d');
-  text(title, 72, 214, '900 88px Arial, "PingFang SC", sans-serif');
+  text('ENDFIELD / TACTICAL AXIS', 75, 111, '800 22px YouYuan, 幼圆, sans-serif', '#dce83d');
+  text(title, 72, 214, '900 88px YouYuan, 幼圆, sans-serif');
   line(75, 251, width - 75, 251, '#dce83d', 3);
-  text(`${String(steps.length).padStart(2, '0')} ACTIONS`, 75, 288, '800 23px Arial');
+  text(`${String(steps.length).padStart(2, '0')} ACTIONS`, 75, 288, '800 23px YouYuan, 幼圆, sans-serif');
   const duration = steps[0].position - steps.at(-1).position;
-  text(`${Number(duration.toFixed(3))} SEC`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
+  text(`${Number(duration.toFixed(3))} SEC`, width - 75, 288, '800 23px YouYuan, 幼圆, sans-serif', '#dce83d', 'right');
   let previous = null;
   const shownGroups = new Set();
   lanes.forEach((lane, row) => {
@@ -312,7 +316,7 @@ function draw({ title, rowSeconds, timeline, steps, style }) {
   });
   const foot = height - 65;
   line(75, foot - 26, width - 75, foot - 26, '#5b665e');
-  text(`制作：@菲比是拉拉${timeline ? ` | Timeline：${timeline}` : ''}`, 75, foot + 13, '800 20px Arial, "PingFang SC", sans-serif');
+  text(`制作：@菲比是拉拉${timeline ? ` | Timeline：${timeline}` : ''}`, 75, foot + 13, '800 20px YouYuan, 幼圆, sans-serif');
   const logo = images.get('endfield-logo'), logoWidth = 205;
   ctx.save(); ctx.filter = 'invert(1)';
   ctx.drawImage(logo, width - 75 - logoWidth, foot - 22, logoWidth, logoWidth * logo.height / logo.width);
