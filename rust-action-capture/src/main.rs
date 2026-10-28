@@ -199,17 +199,11 @@ impl App {
                 }
                 self.set_countdown(&e["challenge_expire_ts"]);
             }
-            "BattleOpModifyBattleState" => match e["is_in_battle"].as_bool() {
-                Some(true) => {
-                    if self.origin.is_none() {
-                        self.begin(&e);
-                    }
-                }
-                Some(false) => {
+            "BattleOpModifyBattleState" => {
+                if e["is_in_battle"].as_bool() == Some(false) {
                     self.finish();
                 }
-                _ => {}
-            },
+            }
             "SC_SYNC_WEEK_RAID_SETTLEMENT"
             | "SC_GAME_MECHANICS_SYNC_CHALLENGE_COMPLETE"
             | "SC_RESET_BATTLE_STATUS"
@@ -725,6 +719,25 @@ mod tests {
         );
         assert_eq!(app.actions.len(), 1);
         assert_eq!(app.actions[0].time, 419.0);
+    }
+
+    #[test]
+    fn entering_combat_does_not_start_or_clear_a_recording() {
+        let mut app = App::default();
+        app.auto_save = false;
+        app.consume(json!({"type":"BattleOpModifyBattleState", "is_in_battle":true, "timestamp_ms":1800000000000_i64}));
+        assert!(app.origin.is_none());
+        battle(&mut app);
+        app.consume(json!({"type":"BattleOpModifyBattleState", "is_in_battle":false}));
+        let previous = app.actions[0].time;
+        app.consume(json!({"type":"BattleOpModifyBattleState", "is_in_battle":true, "timestamp_ms":1800000003000_i64}));
+        assert!(app.origin.is_none());
+        assert_eq!(app.actions.len(), 1);
+        assert_eq!(app.actions[0].time, previous);
+        app.consume(json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7, "timestamp_ms":1800000004000_i64}));
+        assert!(app.origin.is_some());
+        assert_eq!(app.actions.len(), 1);
+        assert_eq!(app.actions[0].stamp.capture_ms, 1800000004000_i64);
     }
 
     #[test]
