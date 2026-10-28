@@ -125,7 +125,7 @@ function loadImage(name) {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => { imageTasks.delete(name); reject(new Error(`无法加载图片：${name}`)); };
-    image.src = name === 'endfield-logo' ? 'assets/endfield-logo.svg' : name.startsWith('mouse-') ? `assets/keys/${name}.svg` : `${base}${name}.png`;
+    image.src = name === 'endfield-logo' ? 'assets/endfield-logo.svg' : name.startsWith('mouse-') ? `assets/keys/${name}.svg?v=2` : `${base}${name}.png`;
   }));
   return imageTasks.get(name);
 }
@@ -216,8 +216,8 @@ function drawKey(node, x, y) {
   else if (node.action === '大招') {
     ctx.strokeStyle = renderStyle.key_color; ctx.lineWidth = renderStyle.badge_border_width;
     ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.stroke();
-    text(String(node.slot), x, y + 9, renderStyle.key_font, renderStyle.key_color, 'center');
-  } else if (key) text(key, x, y + 11, renderStyle.key_font, renderStyle.key_color, 'center');
+    text(String(node.slot), x, y + 9, renderStyle.key_font, renderStyle.key_text_color, 'center');
+  } else if (key) text(key, x, y + 11, renderStyle.key_font, renderStyle.key_text_color, 'center');
   ctx.restore();
 }
 
