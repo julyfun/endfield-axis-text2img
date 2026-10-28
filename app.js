@@ -9,8 +9,6 @@ const ctx = canvas.getContext('2d');
 const isVideoPage = location.pathname.endsWith('/video.html') || new URLSearchParams(location.search).has('video');
 const base = 'assets/operators/';
 let operators = {}, defaultParty = [];
-const actions = new Set(['主控', '战技', '战技II', '战技III', '连携', '大招', '普攻', '重击', '处决', '切人', '其他', '闪避']);
-
 const imageTasks = new Map(), images = new Map();
 const operatorsTask = fetch('assets/operators.toml').then(response => {
   if (!response.ok) throw new Error('无法加载干员元数据');
@@ -92,8 +90,7 @@ function parseDocument(source, configSource, mode = 'poster') {
     const action = record.action?.trim(), rawTime = record.time?.trim(), note = record.note?.trim() || '';
     if (!operators[operator]) throw new Error(`第 ${index + 2} 行：未知干员 ${operator || '（空）'}`);
     if (!slots.includes(operator)) throw new Error(`第 ${index + 2} 行：${operator} 不在 operators 中`);
-    if (!actions.has(action)) throw new Error(`第 ${index + 2} 行：未知动作 ${action || '（空）'}`);
-    if (action === '其他' && [...note].length > 7) throw new Error(`第 ${index + 2} 行：其他动作的备注最多 7 个字`);
+    if (!action) throw new Error(`第 ${index + 2} 行：动作不能为空`);
     if ([...note].length > 36) throw new Error(`第 ${index + 2} 行：备注最多 36 个字`);
     let time = previous;
     if (rawTime) {
@@ -208,7 +205,7 @@ function circleImage(image, x, y, radius, portrait = false) {
 }
 
 function drawKey(node, x, y) {
-  const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : node.action.startsWith('战技') ? String(node.slot) : '';
+  const key = node.action === '切人' ? `F${node.slot}` : node.action === '连携' ? 'E' : ['战技', '战技II', '战技III'].includes(node.action) ? String(node.slot) : '';
   const mouse = node.action === '闪避' ? 'mouse-right' : ['普攻', '重击', '处决'].includes(node.action) ? 'mouse-left' : null;
   ctx.save();
   ctx.shadowColor = 'rgba(0, 0, 0, .85)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = renderStyle.key_shadow_x; ctx.shadowOffsetY = renderStyle.key_shadow_y;
@@ -253,7 +250,7 @@ function drawNode(node, y, showTime, direction = 1, showNote = true) {
     }
     else text(node.action === '切人' ? '⇄' : '闪', cx, cy + 11, renderStyle.key_font, renderStyle.label_color, 'center');
   }
-  const label = node.action === '其他' ? node.note || node.action : node.action;
+  const label = node.action;
   ctx.font = renderStyle.label_font;
   const labelWidth = ctx.measureText(label).width;
   text(label, x, y - renderStyle.label_y_offset, renderStyle.label_font, renderStyle.label_color, 'center');
@@ -263,7 +260,7 @@ function drawNode(node, y, showTime, direction = 1, showNote = true) {
   }
   drawKey(node, x, y + 98);
   if (showNote) {
-    const chars = [...(node.action === '其他' ? '' : node.note)];
+    const chars = [...node.note];
     for (let i = 0; i < chars.length; i += 9) text(chars.slice(i, i + 9).join(''), x, y + 145 + i / 9 * 18, renderStyle.note_font, renderStyle.note_color, 'center');
   }
 }
@@ -307,7 +304,7 @@ function draw({ title, rowSeconds, timeline, steps, style }) {
     }
     lane.nodes.forEach((node, i) => { if (i && !closeTogether(lane.nodes[i - 1], node)) arrow(lane.nodes[i - 1].x + direction * 69, y, node.x - direction * 70, y); });
     lane.nodes.forEach(node => {
-      const showTime = node.specifiedTime && !shownGroups.has(node.groupIndex);
+      const showTime = node.action !== '主控' && node.specifiedTime && !shownGroups.has(node.groupIndex);
       if (showTime) shownGroups.add(node.groupIndex);
       drawNode(node, y, showTime, direction, true);
     });

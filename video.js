@@ -29,9 +29,10 @@ async function prepareVideo(source, configSource) {
     const timeGap = timeWorld - previousTimeWorld - previousExtent - groupExtent;
     const boundedGap = Math.min(maxGroupGap, Math.max(minGroupGap, timeGap));
     group.world = groupIndex ? previousWorld + previousExtent + groupExtent + boundedGap : timeWorld;
+    const timeStep = group.steps.find(step => step.action !== '主控' && step.specifiedTime);
     group.steps.forEach((step, i) => {
       step.groupIndex = groupIndex;
-      step.showTime = i === 0 && step.specifiedTime;
+      step.showTime = step === timeStep;
       step.trigger = Number((offset + steps[0].time - step.time).toFixed(6));
       step.world = group.world + (i - (group.steps.length - 1) / 2) * nodeSpacing;
     });
