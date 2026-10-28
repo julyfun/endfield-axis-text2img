@@ -70,7 +70,7 @@ function parseDocument(source, configSource, mode = 'poster') {
   const rowSeconds = config.row_seconds;
   const title = config.title || '战斗技能时间轴';
   const timeline = config.timeline ?? '';
-  if (mode === 'poster' && (!Number.isInteger(rowSeconds) || rowSeconds < 1 || rowSeconds > 60)) throw new Error('row_seconds 需要 1–60 的整数');
+  if (mode === 'poster' && (!Number.isFinite(rowSeconds) || rowSeconds < 1 || rowSeconds > 60)) throw new Error('row_seconds 需要 1–60 的数字');
   if (![config.group_threshold, config.close_node_gap, config.min_group_gap, config.max_group_gap].every(value => Number.isFinite(value) && value >= 0)) throw new Error('默认间距参数需要是非负数字');
   if (config.max_group_gap < config.min_group_gap) throw new Error('max_group_gap 不能小于 min_group_gap');
   if (mode === 'poster' && (typeof title !== 'string' || [...title].length > 14)) throw new Error('title 最多 14 个字');

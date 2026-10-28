@@ -8,7 +8,7 @@ CSV 表头为 `operator,action,time,note`，见[示例](examples/rotation.csv)�
 
 [默认渲染参数](assets/default.toml)集中维护默认间距、最大间距、尺寸、字体、颜色和视频动画参数；输入的海报/视频 TOML 只覆盖需要修改的字段，也兼容旧的扁平字段写法。CSV/TOML 中出现未定义字段时会在生成状态中给出警告。
 
-[海报 TOML](examples/poster.toml) 可设 `title`（默认“战斗技能时间轴”）、`timeline`（页脚可选署名）、`row_seconds`（默认 10，范围 1–60）和 `operators`（默认提弗洛斯、祀、诀、赛希）。队伍顺序决定键位：切人 `F1`–`F4`，战技 `1`–`4`，连携 `E`，大招为圆圈内的 `1`–`4`；普攻、重击用鼠标左键图标，闪避用右键图标。`timeline` 不填或为空时，页脚只显示“制作：@菲比是拉拉”。未填写的 TOML 字段使用默认值。[示例图片](examples/rotation.png)由示例 CSV 和海报 TOML 生成。
+[海报 TOML](examples/poster.toml) 可设 `title`（默认“战斗技能时间轴”）、`timeline`（页脚可选署名）、`row_seconds`（默认 10，范围 1–60，支持小数）和 `operators`（默认提弗洛斯、祀、诀、赛希）。队伍顺序决定键位：切人 `F1`–`F4`，战技 `1`–`4`，连携 `E`，大招为圆圈内的 `1`–`4`；普攻、重击用鼠标左键图标，闪避用右键图标。`timeline` 不填或为空时，页脚只显示“制作：@菲比是拉拉”。未填写的 TOML 字段使用默认值。[示例图片](examples/rotation.png)由示例 CSV 和海报 TOML 生成。
 
 [视频 TOML](examples/video.toml) 可设 `width`、`height`（默认 1920×1080）、`fps`（默认 30）、`sync_offset_seconds`（默认 0，首条 CSV 动作在录屏中的秒数）和 `operators`。使用与海报相同的 CSV；视频按真实时间长度排布，相邻间隔不超过 0.3 秒的动作聚合为一组，组内和组间都有最小节点间距，组间间距也有最大值，镜头移动到组中心并同时高亮组内动作。当前组触发时播放白色水滴扩散圈，其他动作半透明，末尾停留 1 秒。
 
