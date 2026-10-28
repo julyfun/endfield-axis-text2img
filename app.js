@@ -214,12 +214,14 @@ function drawKey(node, x, y) {
   ctx.shadowColor = 'rgba(0, 0, 0, .85)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = renderStyle.key_shadow_x; ctx.shadowOffsetY = renderStyle.key_shadow_y;
   if (mouse) ctx.drawImage(images.get(mouse), x - 18, y - 18, 36, 36);
   else if (node.action === '大招') {
+    const size = parseFloat(renderStyle.key_font.match(/[\d.]+px/)[0]);
+    const holdFont = renderStyle.key_font.replace(/[\d.]+px/, `${Math.round(size * .9)}px`);
     ctx.strokeStyle = renderStyle.key_color; ctx.lineWidth = renderStyle.badge_border_width;
-    ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, Math.round(size * .53), 0, Math.PI * 2); ctx.stroke();
     const digit = String(node.slot);
-    ctx.font = renderStyle.key_font;
+    ctx.font = holdFont;
     const bounds = ctx.measureText(digit);
-    text(digit, x, y + (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2, renderStyle.key_font, renderStyle.key_text_color, 'center');
+    text(digit, x, y + (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2, holdFont, renderStyle.key_text_color, 'center');
   } else if (key) text(key, x, y + 11, renderStyle.key_font, renderStyle.key_text_color, 'center');
   ctx.restore();
 }
