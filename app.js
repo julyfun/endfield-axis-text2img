@@ -216,7 +216,10 @@ function drawKey(node, x, y) {
   else if (node.action === '大招') {
     ctx.strokeStyle = renderStyle.key_color; ctx.lineWidth = renderStyle.badge_border_width;
     ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.stroke();
-    text(String(node.slot), x, y + 9, renderStyle.key_font, renderStyle.key_text_color, 'center');
+    const digit = String(node.slot);
+    ctx.font = renderStyle.key_font;
+    const bounds = ctx.measureText(digit);
+    text(digit, x, y + (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2, renderStyle.key_font, renderStyle.key_text_color, 'center');
   } else if (key) text(key, x, y + 11, renderStyle.key_font, renderStyle.key_text_color, 'center');
   ctx.restore();
 }
