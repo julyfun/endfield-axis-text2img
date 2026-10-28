@@ -7,7 +7,7 @@ const videoReadout = document.querySelector('#video-readout');
 const videoStatus = document.querySelector('#video-status');
 const videoErrorDetails = document.querySelector('#error-details');
 const videoExport = document.querySelector('#video-export');
-let videoData = null, videoTime = 0, videoPlaying = false, videoFrame;
+let videoData = null, videoTime = 0, videoPlaying = false, videoFrame, videoExporting = false;
 
 function showVideoFrame() {
   if (!videoData) return;
@@ -27,6 +27,7 @@ function tick(now) {
 }
 
 async function loadVideo() {
+  if (videoExporting) return;
   try {
     videoStatus.textContent = '正在加载本地素材…'; videoStatus.classList.remove('error', 'warning');
     videoErrorDetails.hidden = true; videoErrorDetails.textContent = '';
@@ -57,17 +58,28 @@ async function exportVideo() {
   const chunks = [];
   recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
   const stopped = new Promise((resolve, reject) => { recorder.onstop = resolve; recorder.onerror = event => reject(event.error || new Error('视频编码失败')); });
+  const controls = [videoPlay, videoGenerate, videoProgress, source, videoConfigSource];
+  const disabledStates = controls.map(control => control.disabled);
+  videoExporting = true;
+  controls.forEach(control => { control.disabled = true; });
   try {
+    videoTime = 0;
+    showVideoFrame();
     recorder.start();
-    for (let frame = 0; frame < videoData.frameCount; frame++) {
-      videoTime = frame / videoData.fps;
-      drawVideoFrame(videoTime);
-      if (frame % Math.max(1, Math.floor(videoData.fps / 2)) === 0) {
-        videoStatus.textContent = `正在生成视频 ${Math.round(frame / videoData.frameCount * 100)}%`;
+    // MediaRecorder timestamps frames in real time, independent of display refresh rate.
+    const duration = videoData.frameCount / videoData.fps;
+    const started = performance.now();
+    await new Promise(resolve => {
+      function recordFrame(now) {
+        const elapsed = (now - started) / 1000;
+        videoTime = Math.min(videoData.duration, elapsed);
         showVideoFrame();
+        videoStatus.textContent = `正在生成视频 ${Math.min(100, Math.floor(elapsed / duration * 100))}%`;
+        if (elapsed >= duration) resolve();
+        else requestAnimationFrame(recordFrame);
       }
-      await new Promise(resolve => requestAnimationFrame(resolve));
-    }
+      requestAnimationFrame(recordFrame);
+    });
     recorder.stop();
     await stopped;
     const blob = new Blob(chunks, { type: mimeType });
@@ -78,6 +90,8 @@ async function exportVideo() {
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     videoStatus.textContent = `已生成视频（${(blob.size / 1024 / 1024).toFixed(1)} MB）`;
   } finally {
+    videoExporting = false;
+    controls.forEach((control, index) => { control.disabled = disabledStates[index]; });
     stream.getTracks().forEach(track => track.stop());
     videoExport.disabled = false;
     showVideoFrame();
