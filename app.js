@@ -144,10 +144,10 @@ function line(x1, y1, x2, y2, color = '#66706b', width = 2) {
   ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
 }
 
-function arrow(x1, y1, x2, y2) {
+function arrow(x1, y1, x2, y2, color = '#dce83d') {
   const direction = Math.sign(x2 - x1);
-  line(x1, y1, x2, y2, '#dce83d', 3);
-  ctx.fillStyle = '#dce83d'; ctx.beginPath();
+  line(x1, y1, x2, y2, color, 3);
+  ctx.fillStyle = color; ctx.beginPath();
   ctx.moveTo(x2, y2); ctx.lineTo(x2 - direction * 13, y2 - 7);
   ctx.lineTo(x2 - direction * 13, y2 + 7); ctx.fill();
 }

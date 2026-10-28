@@ -80,7 +80,7 @@ function drawVideoFrame(time) {
     const x2 = viewWidth / 2 + steps[i].world - camera - 78;
     if (x2 < 0 || x1 > viewWidth) continue;
     if (steps[i - 1].groupIndex === steps[i].groupIndex) line(x1, y, x2, y, renderStyle.connector_color, 3);
-    else arrow(x1, y, x2, y);
+    else arrow(x1, y, x2, y, renderStyle.connector_color);
   }
   ctx.restore();
   steps.forEach((step, i) => {
