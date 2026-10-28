@@ -59,5 +59,188 @@ element = "灼热"
 
 [operator."莱万汀".assets]
 "战技" = "laevat-skill"
+"战技II" = "laevat-skill-ii"
 "连携" = "laevat-combo"
 "大招" = "laevat-ultimate"
+
+[operator."莱万汀".elements]
+"重击" = "物理"
+
+[operator."管理员（男）"]
+file = "endminm"
+attack = "attack-sword"
+element = "物理"
+assets = { "战技" = "endmin-skill", "连携" = "endmin-combo", "大招" = "endmin-ultimate" }
+
+[operator."黎风"]
+file = "lifeng"
+attack = "attack-lance"
+element = "物理"
+assets = { "战技" = "lifeng-skill", "连携" = "lifeng-combo", "大招" = "lifeng-ultimate" }
+
+[operator."管理员（女）"]
+file = "endminf"
+attack = "attack-sword"
+element = "物理"
+assets = { "战技" = "endmin-skill", "连携" = "endmin-combo", "大招" = "endmin-ultimate" }
+
+[operator."佩丽卡"]
+file = "pelica"
+attack = "attack-funnel"
+element = "电磁"
+assets = { "战技" = "pelica-skill", "连携" = "pelica-combo", "大招" = "pelica-ultimate" }
+
+[operator."陈千语"]
+file = "chen"
+attack = "attack-sword"
+element = "物理"
+assets = { "战技" = "chen-skill", "连携" = "chen-combo", "大招" = "chen-ultimate" }
+
+[operator."艾维文娜"]
+file = "avywen"
+attack = "attack-lance"
+element = "电磁"
+assets = { "战技" = "avywen-skill", "连携" = "avywen-combo", "大招" = "avywen-ultimate" }
+elements = { "普攻" = "物理", "重击" = "物理" }
+
+[operator."弭弗"]
+file = "mifu"
+attack = "attack-claymore"
+element = "物理"
+assets = { "战技" = "mifu-skill", "战技II" = "mifu-skill-ii", "战技III" = "mifu-skill-iii", "连携" = "mifu-combo", "大招" = "mifu-ultimate" }
+
+[operator."狼卫"]
+file = "wolfgd"
+attack = "attack-pistol"
+element = "灼热"
+assets = { "战技" = "wolfgd-skill", "连携" = "wolfgd-combo", "大招" = "wolfgd-ultimate" }
+
+[operator."弧光"]
+file = "ikut"
+attack = "attack-sword"
+element = "电磁"
+assets = { "战技" = "ikut-skill", "连携" = "ikut-combo", "大招" = "ikut-ultimate" }
+elements = { "连携" = "物理", "普攻" = "物理", "重击" = "物理" }
+
+[operator."洁尔佩塔"]
+file = "aglina"
+attack = "attack-funnel"
+element = "自然"
+assets = { "战技" = "aglina-skill", "连携" = "aglina-combo", "大招" = "aglina-ultimate" }
+
+[operator."余烬"]
+file = "azrila"
+attack = "attack-claymore"
+element = "灼热"
+assets = { "战技" = "azrila-skill", "连携" = "azrila-combo", "大招" = "azrila-ultimate" }
+elements = { "连携" = "物理", "普攻" = "物理", "重击" = "物理" }
+
+[operator."噗切娜"]
+file = "purrche"
+attack = "attack-sword"
+element = "物理"
+assets = { "战技" = "purrche-skill", "战技II" = "purrche-skill-ii", "连携" = "purrche-combo", "大招" = "purrche-ultimate" }
+elements = { "战技" = "自然", "战技II" = "自然" }
+
+[operator."昼雪"]
+file = "aurora"
+attack = "attack-claymore"
+element = "寒冷"
+assets = { "战技" = "aurora-skill", "连携" = "aurora-combo", "大招" = "aurora-ultimate" }
+elements = { "普攻" = "物理", "重击" = "物理" }
+
+[operator."大潘"]
+file = "dapan"
+attack = "attack-claymore"
+element = "物理"
+assets = { "战技" = "dapan-skill", "连携" = "dapan-combo", "大招" = "dapan-ultimate" }
+
+[operator."别礼"]
+file = "lastrite"
+attack = "attack-claymore"
+element = "寒冷"
+assets = { "战技" = "lastrite-skill", "连携" = "lastrite-combo", "大招" = "lastrite-ultimate" }
+
+[operator."伊冯"]
+file = "yvonne"
+attack = "attack-pistol"
+element = "寒冷"
+assets = { "战技" = "yvonne-skill", "连携" = "yvonne-combo", "大招" = "yvonne-ultimate" }
+
+[operator."埃特拉"]
+file = "whiten"
+attack = "attack-lance"
+element = "寒冷"
+assets = { "战技" = "whiten-skill", "连携" = "whiten-combo", "大招" = "whiten-ultimate" }
+elements = { "连携" = "物理", "大招" = "物理", "普攻" = "物理", "重击" = "物理" }
+
+[operator."汤汤"]
+file = "tangtang"
+attack = "attack-pistol"
+element = "寒冷"
+assets = { "战技" = "tangtang-skill", "连携" = "tangtang-combo", "大招" = "tangtang-ultimate" }
+
+[operator."秋栗"]
+file = "karin"
+attack = "attack-sword"
+element = "灼热"
+assets = { "战技" = "karin-skill", "连携" = "karin-combo", "大招" = "karin-ultimate" }
+elements = { "连携" = "物理", "普攻" = "物理", "重击" = "物理" }
+
+[operator."卡契尔"]
+file = "meurs"
+attack = "attack-claymore"
+element = "物理"
+assets = { "战技" = "meurs-skill", "连携" = "meurs-combo", "大招" = "meurs-ultimate" }
+
+[operator."萤石"]
+file = "bounda"
+attack = "attack-pistol"
+element = "自然"
+assets = { "战技" = "bounda-skill", "连携" = "bounda-combo", "大招" = "bounda-ultimate" }
+elements = { "重击" = "物理" }
+
+[operator."安塔尔"]
+file = "antal"
+attack = "attack-funnel"
+element = "电磁"
+assets = { "战技" = "antal-skill", "连携" = "antal-combo", "大招" = "antal-ultimate" }
+
+[operator."艾尔黛拉"]
+file = "ardelia"
+attack = "attack-funnel"
+element = "自然"
+assets = { "战技" = "ardelia-skill", "连携" = "ardelia-combo", "大招" = "ardelia-ultimate" }
+elements = { "重击" = "物理" }
+
+[operator."阿列什"]
+file = "deepfin"
+attack = "attack-sword"
+element = "寒冷"
+assets = { "战技" = "deepfin-skill", "连携" = "deepfin-combo", "大招" = "deepfin-ultimate" }
+elements = { "战技" = "物理", "连携" = "物理", "普攻" = "物理", "重击" = "物理" }
+
+[operator."洛茜"]
+file = "wulfa"
+attack = "attack-sword"
+element = "物理"
+assets = { "战技" = "wulfa-skill", "连携" = "wulfa-combo", "大招" = "wulfa-ultimate" }
+elements = { "大招" = "灼热" }
+
+[operator."骏卫"]
+file = "pograni"
+attack = "attack-sword"
+element = "物理"
+assets = { "战技" = "pograni-skill", "连携" = "pograni-combo", "大招" = "pograni-ultimate" }
+
+[operator."庄方宜"]
+file = "zhuangfy"
+attack = "attack-funnel"
+element = "电磁"
+assets = { "战技" = "zhuangfy-skill", "连携" = "zhuangfy-combo", "大招" = "zhuangfy-ultimate" }
+
+[operator."梨诺"]
+file = "liino"
+attack = "attack-lance"
+element = "电磁"
+assets = { "战技" = "liino-skill", "战技II" = "liino-skill-ii", "连携" = "liino-combo", "大招" = "liino-ultimate" }
