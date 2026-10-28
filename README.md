@@ -12,7 +12,7 @@ CSV 表头为 `operator,action,time,note`，见[示例](examples/rotation.csv)�
 
 [视频 TOML](examples/video.toml) 可设 `width`、`height`（默认 1920×1080）、`fps`（默认 30）、`sync_offset_seconds`（默认 0，首条 CSV 动作在录屏中的秒数）和 `operators`。使用与海报相同的 CSV；视频按真实时间长度排布，相邻间隔不超过 0.3 秒的动作聚合为一组，组内和组间都有最小节点间距，组间间距也有最大值，镜头移动到组中心并同时高亮组内动作。当前组触发时播放白色水滴扩散圈，其他动作半透明，末尾停留 1 秒。
 
-视频页的「生成视频」使用浏览器 `MediaRecorder` 导出 WebM/Alpha；需要最新版 Chrome，生成过程按帧显示进度。需要 QuickTime Animation MOV 时，继续使用下方的 Node.js + FFmpeg 命令行。
+视频页的「生成」使用当前输入框中的 CSV/TOML 重新绘制；若在磁盘上修改了已导入的文件，需重新导入。「保存」使用浏览器 `MediaRecorder` 导出 WebM/Alpha；需要最新版 Chrome，导出过程按帧显示进度。需要 QuickTime Animation MOV 时，继续使用下方的 Node.js + FFmpeg 命令行。
 
 生成透明视频需要 Node.js、Google Chrome 和 FFmpeg。在仓库目录运行 `npm install`，再运行 `npm run video -- examples/rotation.csv examples/video.toml output/rotation.mov`。输出为 QuickTime Animation MOV；`output/` 不纳入 Git。Chrome 不在默认安装位置时设置 `CHROME_PATH`。
 
