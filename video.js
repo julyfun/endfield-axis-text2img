@@ -20,13 +20,13 @@ async function prepareVideo(source, configSource) {
   });
   const timeScale = style.time_scale, nodeSpacing = style.node_spacing;
   const minGroupGap = style.min_group_gap, maxGroupGap = style.max_group_gap;
-  let previousWorld = 0, previousExtent = 0;
+  let previousWorld = 0, previousTimeWorld = 0, previousExtent = 0;
   groups.forEach((group, groupIndex) => {
     group.trigger = Number((offset + steps[0].time - group.time).toFixed(6));
     group.halfWidth = (group.steps.length - 1) * nodeSpacing / 2;
     const groupExtent = group.halfWidth + style.node_radius;
     const timeWorld = (steps[0].time - group.time) * timeScale;
-    const timeGap = timeWorld - previousWorld - previousExtent - groupExtent;
+    const timeGap = timeWorld - previousTimeWorld - previousExtent - groupExtent;
     const boundedGap = Math.min(maxGroupGap, Math.max(minGroupGap, timeGap));
     group.world = groupIndex ? previousWorld + previousExtent + groupExtent + boundedGap : timeWorld;
     group.steps.forEach((step, i) => {
@@ -36,6 +36,7 @@ async function prepareVideo(source, configSource) {
       step.world = group.world + (i - (group.steps.length - 1) / 2) * nodeSpacing;
     });
     previousWorld = group.world;
+    previousTimeWorld = timeWorld;
     previousExtent = groupExtent;
     triggers.push(group.trigger);
   });
