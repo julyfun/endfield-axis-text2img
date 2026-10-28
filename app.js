@@ -287,12 +287,12 @@ function draw({ title, rowSeconds, timeline, steps, style }) {
   for (let x = 70; x < width; x += renderStyle.grid_step) line(x, 0, x, height, '#ffffff0b', 1);
   for (let y = 0; y < height; y += renderStyle.grid_step) line(0, y, width, y, '#ffffff0b', 1);
   ctx.fillStyle = '#dce83d'; ctx.fillRect(0, 0, 15, 240); ctx.fillRect(75, 69, 64, 9);
-  text('ENDFIELD / TACTICAL AXIS', 75, 111, '800 22px YouYuan, 幼圆, sans-serif', '#dce83d');
-  text(title, 72, 214, '900 88px YouYuan, 幼圆, sans-serif');
+  text('ENDFIELD / TACTICAL AXIS', 75, 111, '800 22px Arial', '#dce83d');
+  text(title, 72, 214, '900 88px Arial, "PingFang SC", sans-serif');
   line(75, 251, width - 75, 251, '#dce83d', 3);
-  text(`${String(steps.length).padStart(2, '0')} ACTIONS`, 75, 288, '800 23px YouYuan, 幼圆, sans-serif');
+  text(`${String(steps.length).padStart(2, '0')} ACTIONS`, 75, 288, '800 23px Arial');
   const duration = steps[0].position - steps.at(-1).position;
-  text(`${Number(duration.toFixed(3))} SEC`, width - 75, 288, '800 23px YouYuan, 幼圆, sans-serif', '#dce83d', 'right');
+  text(`${Number(duration.toFixed(3))} SEC`, width - 75, 288, '800 23px Arial', '#dce83d', 'right');
   let previous = null;
   const shownGroups = new Set();
   lanes.forEach((lane, row) => {
@@ -316,7 +316,7 @@ function draw({ title, rowSeconds, timeline, steps, style }) {
   });
   const foot = height - 65;
   line(75, foot - 26, width - 75, foot - 26, '#5b665e');
-  text(`制作：@菲比是拉拉${timeline ? ` | Timeline：${timeline}` : ''}`, 75, foot + 13, '800 20px YouYuan, 幼圆, sans-serif');
+  text(`制作：@菲比是拉拉${timeline ? ` | Timeline：${timeline}` : ''}`, 75, foot + 13, '800 20px Arial, "PingFang SC", sans-serif');
   const logo = images.get('endfield-logo'), logoWidth = 205;
   ctx.save(); ctx.filter = 'invert(1)';
   ctx.drawImage(logo, width - 75 - logoWidth, foot - 22, logoWidth, logoWidth * logo.height / logo.width);
