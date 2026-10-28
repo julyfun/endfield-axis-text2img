@@ -221,6 +221,7 @@ function drawKey(node, x, y) {
     const digit = String(node.slot);
     ctx.font = holdFont;
     const bounds = ctx.measureText(digit);
+    ctx.shadowColor = 'transparent';
     text(digit, x, y + (bounds.actualBoundingBoxAscent - bounds.actualBoundingBoxDescent) / 2, holdFont, renderStyle.key_text_color, 'center');
   } else if (key) text(key, x, y + 11, renderStyle.key_font, renderStyle.key_text_color, 'center');
   ctx.restore();
