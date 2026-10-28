@@ -94,7 +94,7 @@ function drawVideoFrame(time) {
   });
   if (active >= 0) {
     const pulseDuration = renderStyle.pulse_duration;
-    groups[active].steps.forEach(step => {
+    groups[active].steps.filter(step => step.action !== '主控').forEach(step => {
       const elapsed = time - step.trigger;
       if (elapsed < 0 || elapsed >= pulseDuration) return;
       const stepProgress = elapsed / pulseDuration;
