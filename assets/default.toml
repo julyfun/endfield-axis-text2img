@@ -1,8 +1,8 @@
 [common]
 operators = ["提弗洛斯", "祀", "诀", "赛希"]
 close_node_gap = 136
-min_group_gap = 184
-max_group_gap = 720
+min_group_gap = 40
+max_group_gap = 320
 group_threshold = 0.3
 
 node_fill = "#1e2422"
@@ -16,7 +16,7 @@ badge_border = "#f4f5ee"
 label_color = "#f4f5ee"
 note_color = "#bac4bb"
 label_font = "800 36px Arial, PingFang SC, sans-serif"
-time_font = "800 27px Arial"
+time_font = "800 29px Arial"
 key_font = "800 36px Arial"
 note_font = "600 20px Arial, PingFang SC, sans-serif"
 label_y_offset = 86

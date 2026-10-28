@@ -64,7 +64,7 @@ element = "灼热"
 "大招" = "laevat-ultimate"
 
 [operator."莱万汀".elements]
-"重击" = "物理"
+"重击" = "灼热"
 
 [operator."管理员（男）"]
 file = "endminm"
