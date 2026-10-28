@@ -54,6 +54,41 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(events[-1]["template_str_id"], "chr_0036_jsspsi_normal_skill")
         self.assertEqual(events[-1]["action"], "战技")
 
+    def test_heartbeat_proto_decode_pairs_echoed_token_for_clock_calibration(self):
+        from endfield_pcap.message_registry import MessageRegistry
+        from endfield_pcap.runtime_paths import bundle_root
+        from endfield_pcap.proto_generated.CS_PING_pb2 import CS_PING
+        from endfield_pcap.proto_generated.SC_PING_pb2 import SC_PING
+        registry = MessageRegistry(bundle_root() / "data")
+        pipeline = SessionPipeline.__new__(SessionPipeline)
+        pipeline.session_id = "clock-test"
+        pipeline.decoded_class_counts = Counter()
+        pipeline.on_debug_message = None
+        sink = worker.EventSink(PacketResolver())
+        pipeline._emit_event = lambda event: sink(event.as_dict())
+        base = 1_800_000_000_000
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            for direction, message, timestamp in [
+                ("cs", CS_PING(client_ts=12345, logical_ts=1000), base),
+                ("sc", SC_PING(client_ts=12345, server_ts=base + 310), base + 20),
+                ("sc", SC_PING(client_ts=99999, server_ts=base + 320), base + 30),
+            ]:
+                msg_id = next(i for i, name in registry._maps[direction].items() if name == message.DESCRIPTOR.name)
+                decoded, = registry.decode_messages(direction, {"msgid": msg_id}, message.SerializeToString())
+                pipeline._handle_message(decoded, timestamp)
+        samples = [json.loads(line) for line in output.getvalue().splitlines() if json.loads(line)["type"] == "capture_clock_sample"]
+        self.assertEqual(samples, [{"type": "capture_clock_sample", "send_ms": base,
+                                   "receive_ms": base + 20, "server_ms": base + 310}])
+        # A response from the preceding session cannot calibrate a new session.
+        with contextlib.redirect_stdout(io.StringIO()):
+            sink({"type": "CS_PING", "session_id": "clock-test", "timestamp_ms": base, "client_ts": 7})
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            sink({"type": "SC_PING", "session_id": "new-session", "timestamp_ms": base + 20,
+                  "client_ts": 7, "server_ts": base + 310})
+        self.assertNotIn("capture_clock_sample", output.getvalue())
+
     def test_server_leader_switch_updates_battle_owner_before_next_cast(self):
         pipeline_class = worker.leader_tracking_pipeline()
         pipeline = pipeline_class.__new__(pipeline_class)
@@ -139,6 +174,8 @@ class WorkerTests(unittest.TestCase):
         op.op_type = op.DESCRIPTOR.fields_by_name["op_type"].enum_type.values_by_name["BattleOpSkillStartCast"].number
         op.owner_id = 42
         op.skill_start_cast_op_data.inst_id = 7
+        op.client_tick_tms = 1234
+        op.generation = 2
         decoded = CS_BATTLE_OP.FromString(message.SerializeToString())
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
@@ -149,6 +186,8 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(events[1]["action"], "战技")
         self.assertEqual(events[2]["owner_id"], 42)
         self.assertEqual(events[2]["skill_inst_id"], 7)
+        self.assertEqual(events[2]["client_tick_tms"], 1234)
+        self.assertEqual(events[2]["generation"], 2)
 
     def test_parent_eof_stops_service_and_closes_capture(self):
         manager = Mock()

@@ -611,6 +611,9 @@ class SessionPipeline:
         self.decoded_class_counts[decoded.class_name] += 1
         if self.on_debug_message is not None:
             self.on_debug_message(decoded, timestamp_ms)
+        if decoded.class_name in {"CS_PING", "SC_PING"}:
+            self._emit_proto_passthrough_event(decoded.class_name, decoded.message, timestamp_ms)
+            return
         if decoded.class_name == "CS_ENTER_DUNGEON":
             self._emit_proto_passthrough_event(
                 decoded.class_name,
@@ -2095,6 +2098,7 @@ class SessionPipeline:
                 payload: dict[str, object | None] = {
                     "seq_id": seq_id,
                     "client_tick_tms": client_tick_tms,
+                    "generation": int(getattr(op, "generation", 0)),
                     "src_inst_id": int(getattr(attach_data, "src_inst_id", 0)) or None,
                     "skill_inst_id": int(getattr(attach_data, "skill_inst_id", 0)) or None,
                     "skill_lv": int(getattr(attach_data, "skill_lv", 0)) or None,
@@ -2125,6 +2129,7 @@ class SessionPipeline:
                         payload={
                             "seq_id": seq_id,
                             "client_tick_tms": client_tick_tms,
+                            "generation": int(getattr(op, "generation", 0)),
                             "skill_inst_id": int(getattr(detach_data, "skill_inst_id", 0)) or None,
                         },
                     )
@@ -2142,6 +2147,7 @@ class SessionPipeline:
                         payload={
                             "seq_id": seq_id,
                             "client_tick_tms": client_tick_tms,
+                            "generation": int(getattr(op, "generation", 0)),
                             "owner_id": int(getattr(op, "owner_id", 0)) or None,
                             "skill_inst_id": int(getattr(cast_data, "inst_id", 0)) or None,
                         },
@@ -2160,6 +2166,7 @@ class SessionPipeline:
                         payload={
                             "seq_id": seq_id,
                             "client_tick_tms": client_tick_tms,
+                            "generation": int(getattr(op, "generation", 0)),
                             "owner_id": int(getattr(op, "owner_id", 0)) or None,
                             "skill_inst_id": int(getattr(cast_data, "inst_id", 0)) or None,
                         },
@@ -2181,6 +2188,7 @@ class SessionPipeline:
                         payload={
                             "seq_id": seq_id,
                             "client_tick_tms": client_tick_tms,
+                            "generation": int(getattr(op, "generation", 0)),
                             "buff_inst_id": int(getattr(finish_data, "buff_inst_id", 0)) or None,
                         },
                     )
@@ -2194,6 +2202,7 @@ class SessionPipeline:
                 payload: dict[str, object | None] = {
                     "seq_id": seq_id,
                     "client_tick_tms": client_tick_tms,
+                    "generation": int(getattr(op, "generation", 0)),
                     "int_id": template_int_id,
                     "buff_inst_id": int(getattr(add_data, "buff_inst_id", 0)) or None,
                     "src_inst_id": int(getattr(add_data, "src_inst_id", 0)) or None,
@@ -2223,6 +2232,7 @@ class SessionPipeline:
                         payload={
                             "seq_id": seq_id,
                             "client_tick_tms": client_tick_tms,
+                            "generation": int(getattr(op, "generation", 0)),
                             "skill_inst_id": int(getattr(enable_data, "skill_inst_id", 0)) or None,
                         },
                     )
@@ -2241,6 +2251,7 @@ class SessionPipeline:
                         payload={
                             "seq_id": seq_id,
                             "client_tick_tms": client_tick_tms,
+                            "generation": int(getattr(op, "generation", 0)),
                             "entity_inst_id": entity_inst_id,
                         },
                     )
@@ -2259,6 +2270,7 @@ class SessionPipeline:
                             payload={
                                 "seq_id": seq_id,
                                 "client_tick_tms": client_tick_tms,
+                                "generation": int(getattr(op, "generation", 0)),
                                 "is_in_battle": False,
                             },
                         )
@@ -2278,6 +2290,7 @@ class SessionPipeline:
                 payload: dict[str, object | None] = {
                     "seq_id": seq_id,
                     "client_tick_tms": client_tick_tms,
+                    "generation": int(getattr(op, "generation", 0)),
                     "owner_id": int(getattr(op, "owner_id", 0)) or None,
                     "entity_inst_id": int(getattr(value_data, "entity_inst_id", 0)) or None,
                     "scene_num_id": int(getattr(value_data, "scene_num_id", 0)) or None,
@@ -2321,6 +2334,7 @@ class SessionPipeline:
                         payload={
                             "seq_id": seq_id,
                             "client_tick_tms": client_tick_tms,
+                            "generation": int(getattr(op, "generation", 0)),
                             "is_in_battle": is_in_battle,
                         },
                     )
@@ -2343,6 +2357,7 @@ class SessionPipeline:
                 payload = {
                     "seq_id": seq_id,
                     "client_tick_tms": client_tick_tms,
+                    "generation": int(getattr(op, "generation", 0)),
                     "owner_id": int(getattr(op, "owner_id", 0)) or None,
                     "modify_type": self._field_enum_name(poise_data, "modify_type"),
                     "owner_type": self._field_enum_name(poise_data, "owner_type"),
@@ -2386,6 +2401,7 @@ class SessionPipeline:
                 payload = {
                     "seq_id": seq_id,
                     "client_tick_tms": client_tick_tms,
+                    "generation": int(getattr(op, "generation", 0)),
                     "owner_id": int(getattr(op, "owner_id", 0)) or None,
                     "atb_value": float(getattr(atb_data, "atb_value", 0.0) or 0.0) if atb_data is not None else None,
                     "atb_recovery_speed": (
@@ -2429,6 +2445,7 @@ class SessionPipeline:
         payload: dict[str, object | None] = {
             "seq_id": seq_id,
             "client_tick_tms": client_tick_tms,
+            "generation": int(getattr(op, "generation", 0)),
             "owner_id": int(getattr(trigger_data, "owner_id", 0) or getattr(op, "owner_id", 0)) or None,
             "owner_type": str(getattr(trigger_data, "owner_type", "")) or None,
             "inst_id": int(getattr(trigger_data, "inst_id", 0)) or None,

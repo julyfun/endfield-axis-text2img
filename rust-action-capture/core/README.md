@@ -12,6 +12,9 @@ Npcap binaries, game DLLs, user settings, and captured logs.
 
 Local changes:
 
+- Decode and log CS/SC ping messages for clock synchronization; battle operation
+  events also preserve their generation for detecting simulation clock resets.
+
 - `PacketResolver` loads the authoritative `skill_id` mapping before heuristic
   packet mappings. The table includes the newer action IDs already tracked in
   this repository's `data/skill_actions.csv` (including multi-stage skills).

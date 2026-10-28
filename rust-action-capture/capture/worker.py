@@ -31,13 +31,33 @@ class EventSink:
     def __init__(self, resolver):
         self.resolver = resolver
         self.session = None
+        self.pending_pings = {}
         self.rules = ActionRules(resolver.static_skill_by_numeric.values())
 
     def __call__(self, event: dict) -> None:
         kind = event.get("type")
         if event.get("session_id") != self.session:
             self.session = event.get("session_id")
+            self.pending_pings.clear()
             emit({"type": "capture_session", "session_id": self.session})
+        if kind in {"CS_PING", "SC_PING"}:
+            token = str(event.get("client_ts", ""))
+            timestamp = int(event.get("timestamp_ms", 0))
+            if kind == "CS_PING":
+                self.pending_pings[token] = timestamp
+                if len(self.pending_pings) > 32:
+                    del self.pending_pings[next(iter(self.pending_pings))]
+            else:
+                sent = self.pending_pings.pop(token, None)
+                server = int(event.get("server_ts", 0))
+                # Accept epoch milliseconds or seconds; unrelated counter units
+                # must never become a wall-clock calibration.
+                if 1_000_000_000 <= server < 100_000_000_000:
+                    server *= 1000
+                if sent is not None and 0 <= timestamp - sent <= 3000 and 1_000_000_000_000 <= server < 100_000_000_000_000:
+                    emit({"type": "capture_clock_sample", "send_ms": sent,
+                          "receive_ms": timestamp, "server_ms": server})
+            return
         if kind in {"SC_SELF_SCENE_INFO_SKILLS", "SC_ATTACH_SERVER_SKILL", "SC_UPDATE_SERVER_SKILL"}:
             for skill in event.get("skills") or []:
                 self({**skill, "type": "BattleOpSkillAttach", "session_id": self.session,

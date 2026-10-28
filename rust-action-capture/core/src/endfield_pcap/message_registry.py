@@ -50,6 +50,7 @@ class MessageRegistry:
         for direction, mapping in _CUSTOM_MESSAGE_IDS.items():
             self._maps.setdefault(direction, {}).update(mapping)
         self._interesting_class_names = {
+            "CS_PING", "SC_PING",
             "CS_CONTINGENCY_CONTRACT_SET_TAGS",
             "CS_BATTLE_OP",
             "CS_DEV_CLEAR_BATTLE_INFO",

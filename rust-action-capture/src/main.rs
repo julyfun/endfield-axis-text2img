@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod capture;
+mod timing;
 
 use eframe::egui;
 use serde_json::Value;
@@ -16,6 +17,8 @@ struct Action {
     operator: String,
     action: String,
     time: f64,
+    stamp: timing::Stamp,
+    origin: timing::Stamp,
 }
 
 struct App {
@@ -23,7 +26,8 @@ struct App {
     game_dir: String,
     csv_dir: String,
     actions: Vec<Action>,
-    origin_ms: Option<i64>,
+    origin: Option<timing::Stamp>,
+    clock: timing::Clock,
     countdown_end_ms: Option<i64>,
     saved_actions: usize,
     skill_by_inst: HashMap<i64, String>,
@@ -48,7 +52,8 @@ impl Default for App {
                 .to_string_lossy()
                 .into_owned(),
             actions: vec![],
-            origin_ms: None,
+            origin: None,
+            clock: timing::Clock::default(),
             countdown_end_ms: None,
             saved_actions: 0,
             skill_by_inst: HashMap::new(),
@@ -114,7 +119,6 @@ impl App {
 
     fn consume(&mut self, e: Value) {
         let kind = e["type"].as_str().unwrap_or_default();
-        let ts = e["timestamp_ms"].as_i64().unwrap_or(0);
         match kind {
             "capture_error" => {
                 self.status = format!("抓包失败：{}", e["message"].as_str().unwrap_or("未知错误"));
@@ -141,8 +145,19 @@ impl App {
                 self.skill_by_inst.clear();
                 self.name_by_inst.clear();
                 self.leader = None;
-                self.origin_ms = None;
+                self.origin = None;
+                self.clock = timing::Clock::default();
                 self.countdown_end_ms = None;
+            }
+            "capture_clock_sample" => {
+                if let (Some(send), Some(receive), Some(server)) = (
+                    e["send_ms"].as_i64(),
+                    e["receive_ms"].as_i64(),
+                    e["server_ms"].as_i64(),
+                ) {
+                    self.clock.ping(send, receive, server);
+                    self.refresh_times();
+                }
             }
             "SC_SELF_SCENE_INFO" | "squad_update" => {
                 if let Some(members) = e["char_list"]
@@ -179,15 +194,15 @@ impl App {
                 }
             }
             "SC_GAME_MECHANICS_SYNC_CHALLENGE_START" => {
-                if !self.begin(ts) {
+                if !self.begin(&e) {
                     return;
                 }
                 self.set_countdown(&e["challenge_expire_ts"]);
             }
             "BattleOpModifyBattleState" => match e["is_in_battle"].as_bool() {
                 Some(true) => {
-                    if self.origin_ms.is_none() {
-                        self.begin(ts);
+                    if self.origin.is_none() {
+                        self.begin(&e);
                     }
                 }
                 Some(false) => {
@@ -200,7 +215,7 @@ impl App {
             | "SC_RESET_BATTLE_STATUS"
             | "SC_GAME_MECHANICS_SYNC_RESTART_GAME_INST" => {
                 self.finish();
-                self.origin_ms = None;
+                self.origin = None;
                 self.countdown_end_ms = None;
             }
             "BattleOpSkillStartCast" => {
@@ -224,20 +239,20 @@ impl App {
                 else {
                     return;
                 };
-                if self.origin_ms.is_none() && !self.begin(ts) {
+                if self.origin.is_none() && !self.begin(&e) {
                     return;
                 }
-                let time = self
-                    .countdown_end_ms
-                    .map(|end| (end - ts).max(0))
-                    .unwrap_or_else(|| (ts - self.origin_ms.unwrap_or(ts)).max(0))
-                    as f64
-                    / 1000.0;
+                let stamp = self.stamp(&e);
+                let origin = self.origin.unwrap();
+                let time = self.clock.time_ms(stamp, origin, self.countdown_end_ms) as f64 / 1000.0;
                 self.actions.push(Action {
                     operator: owner,
                     action: action.into(),
                     time,
+                    stamp,
+                    origin,
                 });
+                self.refresh_times();
             }
             _ => {}
         }
@@ -254,16 +269,40 @@ impl App {
             } else {
                 end
             });
+            self.refresh_times();
         }
     }
 
-    fn begin(&mut self, ts: i64) -> bool {
+    fn stamp(&mut self, e: &Value) -> timing::Stamp {
+        self.clock.observe(
+            e["timestamp_ms"].as_i64().unwrap_or(0),
+            e["client_tick_tms"].as_i64(),
+            e["generation"].as_i64(),
+            e["seq_id"].as_i64(),
+        )
+    }
+
+    fn refresh_times(&mut self) {
+        if self.origin.is_none() {
+            return;
+        }
+        for action in &mut self.actions {
+            action.time = self
+                .clock
+                .time_ms(action.stamp, action.origin, self.countdown_end_ms)
+                as f64
+                / 1000.0;
+        }
+    }
+
+    fn begin(&mut self, event: &Value) -> bool {
         if !self.finish() {
             return false;
         }
         self.actions.clear();
         self.saved_actions = 0;
-        self.origin_ms = Some(ts);
+        self.clock.begin();
+        self.origin = Some(self.stamp(event));
         true
     }
 
@@ -277,7 +316,7 @@ impl App {
                 }
             }
         }
-        self.origin_ms = None;
+        self.origin = None;
         true
     }
 
@@ -334,8 +373,14 @@ impl eframe::App for App {
                                 .sense(egui::Sense::drag()),
                         )
                         .on_hover_text(format!(
-                            "{} · {} 包 · 拖动移动窗口",
-                            self.status, self.packets
+                            "{} · {} 包 · {} · 拖动移动窗口",
+                            self.status,
+                            self.packets,
+                            if self.clock.server_offset_ms().is_some() {
+                                "服务器时钟已校准"
+                            } else {
+                                "等待心跳校准时钟"
+                            }
                         ));
                     if drag.dragged() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
@@ -618,6 +663,68 @@ mod tests {
         assert_eq!(&row[3], "");
         fs::remove_file(files[0].path()).unwrap();
         fs::remove_dir(dir).unwrap();
+    }
+
+    #[test]
+    fn exported_casts_use_tick_spacing_and_late_clock_calibration() {
+        let mut app = App::default();
+        app.auto_save = false;
+        battle(&mut app);
+        app.actions.clear();
+        let end = app.countdown_end_ms.unwrap();
+        app.consume(
+            json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7,
+            "timestamp_ms":end - 400_000, "client_tick_tms":1000, "seq_id":10, "generation":1}),
+        );
+        app.consume(
+            json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7,
+            "timestamp_ms":end - 400_000, "client_tick_tms":1300, "seq_id":11, "generation":1}),
+        );
+        assert!((app.actions[0].time - app.actions[1].time - 0.3).abs() < 0.0001);
+        let before = app.actions[0].time;
+        app.consume(json!({"type":"capture_clock_sample", "send_ms":end - 5000,
+            "receive_ms":end - 4980, "server_ms":end - 4690}));
+        assert!((app.actions[0].time - before + 0.3).abs() < 0.0001);
+        let dir = std::env::temp_dir().join(format!(
+            "capture-clock-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        app.csv_dir = dir.to_string_lossy().into_owned();
+        let path = app.save_csv().unwrap().unwrap();
+        let rows: Vec<_> = csv::Reader::from_path(&path)
+            .unwrap()
+            .records()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(&rows[0][2], &format_time(app.actions[0].time));
+        assert_eq!(&rows[1][2], &format_time(app.actions[1].time));
+        fs::remove_file(path).unwrap();
+        fs::remove_dir(dir).unwrap();
+        app.consume(json!({"type":"capture_session", "session_id":"new"}));
+        assert!(app.clock.server_offset_ms().is_none());
+    }
+
+    #[test]
+    fn next_challenge_gets_a_fresh_tick_anchor() {
+        let mut app = App::default();
+        app.auto_save = false;
+        battle(&mut app);
+        let base = 1_800_000_000_000_i64;
+        app.consume(
+            json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7,
+            "timestamp_ms":base + 2000, "client_tick_tms":1000, "seq_id":10}),
+        );
+        app.consume(json!({"type":"SC_GAME_MECHANICS_SYNC_CHALLENGE_START",
+            "timestamp_ms":base + 10_000, "challenge_expire_ts":base + 430_000}));
+        app.consume(
+            json!({"type":"BattleOpSkillStartCast", "owner_id":42, "skill_inst_id":7,
+            "timestamp_ms":base + 11_000, "client_tick_tms":2000, "seq_id":20}),
+        );
+        assert_eq!(app.actions.len(), 1);
+        assert_eq!(app.actions[0].time, 419.0);
     }
 
     #[test]
